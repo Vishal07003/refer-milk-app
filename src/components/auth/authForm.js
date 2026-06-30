@@ -16,7 +16,10 @@ export const authLabelClass = 'mt-7 font-semibold text-sm text-black';
 
 export const authOptionalClass = 'ml-1.5 font-sans text-xs text-gray-400';
 
-export const authButtonClass = 'mt-7 items-center rounded-xl bg-brand py-4 active:opacity-90';
+export const primaryButtonClass =
+  'w-full flex-row items-center justify-center gap-2 rounded-xl bg-brand py-4 active:opacity-90';
+
+export const authButtonClass = `mt-7 ${primaryButtonClass}`;
 
 export const authButtonTextClass = 'font-bold text-base text-white';
 

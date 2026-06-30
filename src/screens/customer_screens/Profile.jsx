@@ -1,11 +1,10 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import {
   Bell,
-  ChevronRight,
   CircleHelp,
   MapPin,
-  PencilLine,
   Receipt,
   Share2,
   User,
@@ -13,14 +12,20 @@ import {
 import {
   Avatar,
   Chip,
-  ListRow,
   LogoutRow,
+  MenuSection,
   Screen,
   ScreenHeader,
   SectionLabel,
-  Surface,
 } from '../../components/customer/ui';
-import { c, radius, shadow } from '../../theme/customerTheme';
+import { useSubscription } from '../../context/SubscriptionContext';
+import { c } from '../../theme/customerTheme';
+
+const accountRoutes = {
+  'Edit profile': 'EditProfile',
+  'Delivery address': 'DeliveryAddress',
+  'Payment history': 'PaymentHistory',
+};
 
 const account = [
   { title: 'Edit profile', Icon: User },
@@ -42,7 +47,14 @@ function ProfileStats() {
   ];
 
   return (
-    <Surface padded={false} style={{ flexDirection: 'row', marginBottom: 8 }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        marginBottom: 8,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: c.border,
+      }}>
       {stats.map((stat, index) => (
         <View
           key={stat.label}
@@ -73,19 +85,19 @@ function ProfileStats() {
           </Text>
         </View>
       ))}
-    </Surface>
+    </View>
   );
 }
 
 export default function Profile() {
+  const navigation = useNavigation();
+  const { hasSubscription } = useSubscription();
+
   return (
     <Screen>
-      <ScreenHeader
-        subtitle="Your account"
-        title="Profile"
-      />
+      <ScreenHeader subtitle="Your account" title="Profile" />
 
-      <Surface style={{ alignItems: 'center', paddingVertical: 28, marginBottom: 16 }}>
+      <View style={{ alignItems: 'center', paddingVertical: 24, marginBottom: 16 }}>
         <View style={{ position: 'relative', marginBottom: 14 }}>
           <Avatar initials="RP" size={84} ring />
           <View
@@ -98,7 +110,7 @@ export default function Profile() {
               borderRadius: 8,
               backgroundColor: '#22C55E',
               borderWidth: 2,
-              borderColor: c.surface,
+              borderColor: c.bg,
             }}
           />
         </View>
@@ -120,40 +132,27 @@ export default function Profile() {
           }}>
           +91 98765 43210
         </Text>
-        <View style={{ marginTop: 12 }}>
-          <Chip label="Active subscriber" tone="live" />
-        </View>
-      </Surface>
+        {hasSubscription ? (
+          <View style={{ marginTop: 12 }}>
+            <Chip label="Active subscriber" tone="live" />
+          </View>
+        ) : null}
+      </View>
 
       <ProfileStats />
 
       <SectionLabel>Account</SectionLabel>
-      <Surface padded={false}>
-        {account.map((item, i) => (
-          <ListRow
-            key={item.title}
-            {...item}
-            last={i === account.length - 1}
-            right={<ChevronRight size={16} color={c.inkMuted} />}
-          />
-        ))}
-      </Surface>
+      <MenuSection
+        items={account}
+        onPressItem={(title) => navigation.navigate(accountRoutes[title])}
+      />
 
       <SectionLabel>More</SectionLabel>
-      <Surface padded={false}>
-        {more.map((item, i) => (
-          <ListRow
-            key={item.title}
-            {...item}
-            last={i === more.length - 1}
-            right={<ChevronRight size={16} color={c.inkMuted} />}
-          />
-        ))}
-      </Surface>
+      <MenuSection items={more} />
 
-      <Surface padded={false} style={{ marginTop: 24 }}>
+      <View style={{ marginTop: 24, borderTopWidth: 1, borderColor: c.border }}>
         <LogoutRow />
-      </Surface>
+      </View>
 
       <Text
         style={{

@@ -7,6 +7,7 @@ import CustomerNavigator from './CustomerNavigator';
 export default function RootNavigator() {
   return (
     <NavigationContainer>
+      {/* <AuthNavigator /> */}
       <CustomerNavigator />
     </NavigationContainer>
   );

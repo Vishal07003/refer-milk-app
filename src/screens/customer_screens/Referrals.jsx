@@ -5,8 +5,9 @@ import {
   Avatar,
   Chip,
   DarkHero,
+  ListRow,
+  ListSection,
   PrimaryBtn,
-  PrimaryBtnText,
   Screen,
   ScreenHeader,
   SectionLabel,
@@ -66,40 +67,23 @@ export default function Referrals() {
           YOUR CODE
         </Text>
         <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: c.surfaceMuted,
-            borderRadius: radius.md,
-            padding: 16,
-            marginTop: 10,
-          }}>
-          <Text
-            style={{
-              fontFamily: 'Poppins-Bold',
-              fontSize: 18,
-              color: c.ink,
-              letterSpacing: 4,
-            }}>
-            REFERMILK123
-          </Text>
+          className='flex-row items-center justify-between'>
+          <Text className='text-brand text-2xl font-medium'>REFERMILK123</Text>
           <Pressable
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 12,
-              backgroundColor: c.surface,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-            <Copy size={18} color={c.brand} strokeWidth={2} />
+            className='w-10 h-10 rounded-lg bg-surface items-center justify-center'
+            >
+            <Copy size={18} color={c.ink} strokeWidth={2} />
           </Pressable>
         </View>
-        <PrimaryBtn style={{ marginTop: 14 }}>
-          <Share2 size={18} color="#FFF" strokeWidth={2} />
-          <PrimaryBtnText> Share on WhatsApp</PrimaryBtnText>
-        </PrimaryBtn>
+        <Pressable
+          style={{
+            borderRadius:14
+          }}
+          className='border border-gray-200  py-3 rounded-2xl mt-5 flex-row items-center justify-center px-4 '
+          >
+            <Share2 size={18} color={c.brand} strokeWidth={2} />
+            <Text className='text-brand ml-2 font-semibold'>Share on WhatsApp</Text>
+          </Pressable>
       </Surface>
 
       <SectionLabel
@@ -111,52 +95,45 @@ export default function Referrals() {
         Activity
       </SectionLabel>
 
-      <Surface padded={false}>
+      <ListSection>
         {timeline.map((item, index) => (
-          <View
+          <ListRow
             key={item.name}
-            style={{
-              flexDirection: 'row',
-              paddingHorizontal: 18,
-              paddingVertical: 16,
-              borderBottomWidth: index < timeline.length - 1 ? 1 : 0,
-              borderBottomColor: c.border,
-            }}>
-            <View
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: toneColor[item.tone],
-                marginTop: 6,
-                marginRight: 14,
-              }}
-            />
-            <View className="flex-1">
-              <Text style={{ fontFamily: 'Poppins-SemiBold', fontSize: 14, color: c.ink }}>
-                {item.name}
-              </Text>
+            title={item.name}
+            subtitle={item.detail}
+            last={index === timeline.length - 1}
+            leading={
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}>
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: toneColor[item.tone],
+                  }}
+                />
+              </View>
+            }
+            right={
               <Text
                 style={{
-                  fontFamily: 'Poppins-Regular',
-                  fontSize: 12,
-                  color: c.inkMuted,
-                  marginTop: 2,
+                  fontFamily: 'Poppins-SemiBold',
+                  fontSize: 13,
+                  color: toneColor[item.tone],
                 }}>
-                {item.detail}
+                {item.delta}
               </Text>
-            </View>
-            <Text
-              style={{
-                fontFamily: 'Poppins-SemiBold',
-                fontSize: 13,
-                color: toneColor[item.tone],
-              }}>
-              {item.delta}
-            </Text>
-          </View>
+            }
+          />
         ))}
-      </Surface>
+      </ListSection>
 
       <View
         style={{
