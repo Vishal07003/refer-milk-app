@@ -1,9 +1,8 @@
-import React from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useCallback } from 'react';
+import { Pressable, Text, View, ActivityIndicator } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
   Bell,
-  Calendar,
   CalendarClock,
   ChevronRight,
   Droplets,
@@ -19,7 +18,6 @@ import {
   DarkHero,
   ListRow,
   ListSection,
-  PrimaryBtn,
   Screen,
   SectionLabel,
   StatBox,
@@ -27,10 +25,82 @@ import {
 } from '../../components/customer/ui';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { c, radius } from '../../theme/customerTheme';
+import { getProfile, getNotifications } from '../../services/authService';
+import { getMySubscriptions } from '../../services/subscriptionService';
 
 export default function Dashboard() {
   const navigation = useNavigation();
-  const { hasSubscription } = useSubscription();
+  const { hasSubscription, setHasSubscription } = useSubscription();
+
+  const [profile, setProfile] = useState(null);
+  const [activeSub, setActiveSub] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+
+      const fetchDashboardData = async () => {
+        try {
+          setLoading(true);
+          const [profRes, subRes, notifRes] = await Promise.allSettled([
+            getProfile(),
+            getMySubscriptions(),
+            getNotifications(),
+          ]);
+
+          if (isMounted) {
+            if (profRes.status === 'fulfilled') setProfile(profRes.value);
+            if (subRes.status === 'fulfilled') {
+              const subs = Array.isArray(subRes.value) ? subRes.value : subRes.value?.results || [];
+              const active = subs.find((s) => s.status === 'active' || s.is_active) || subs[0];
+              if (active) {
+                setActiveSub(active);
+                setHasSubscription(true);
+              } else {
+                setActiveSub(null);
+                setHasSubscription(false);
+              }
+            }
+            if (notifRes.status === 'fulfilled') {
+              const nVal = notifRes.value;
+              const count = nVal?.unread_count ?? (Array.isArray(nVal?.notifications) ? nVal.notifications.filter(n => !n.is_read).length : 0);
+              setUnreadCount(count);
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching dashboard data:', err);
+        } finally {
+          if (isMounted) setLoading(false);
+        }
+      };
+
+      fetchDashboardData();
+
+      return () => {
+        isMounted = false;
+      };
+    }, [setHasSubscription])
+  );
+
+  const getGreetingName = () => {
+    if (!profile) return 'User';
+    const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+    return name || profile.mobile_number || 'Customer';
+  };
+
+  const getInitials = () => {
+    if (!profile) return 'U';
+    const f = (profile.first_name || '')[0] || '';
+    const l = (profile.last_name || '')[0] || '';
+    return (f + l).toUpperCase() || 'U';
+  };
+
+  const quantity = activeSub?.quantity ?? '2.0';
+  const baseRate = activeSub?.price_per_litre ?? '70';
+  const discountPerLitre = activeSub?.discount_per_litre ?? profile?.referrals_count ?? 0;
+  const finalRate = Math.max(0, Number(baseRate) - Number(discountPerLitre));
 
   return (
     <Screen>
@@ -47,11 +117,12 @@ export default function Dashboard() {
               letterSpacing: -0.5,
               marginTop: 2,
             }}>
-            Ramesh Patil
+            {getGreetingName()}
           </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Pressable
+            onPress={() => navigation.navigate('Notifications')}
             style={{
               width: 40,
               height: 40,
@@ -61,20 +132,37 @@ export default function Dashboard() {
               justifyContent: 'center',
             }}>
             <Bell size={20} color={c.ink} strokeWidth={2} />
+            {unreadCount > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: c.brand,
+                }}
+              />
+            )}
           </Pressable>
           <View style={{ width: 12 }} />
-          <Avatar initials="RP" size={44} ring />
+          <Avatar initials={getInitials()} size={44} ring />
         </View>
       </View>
 
-      {hasSubscription ? (
+      {loading ? (
+        <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={c.brand} />
+        </View>
+      ) : hasSubscription && activeSub ? (
         <DarkHero style={{ marginBottom: 20 }}>
           <View style={{ marginBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Chip label="● Delivered today" tone="live" />
             <Milk size={22} color="rgba(255,255,255,0.7)" strokeWidth={2} />
           </View>
           <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>
-            Today's delivery
+            Today's delivery ({activeSub.product_name || 'Cow Milk'})
           </Text>
           <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'flex-end' }}>
             <Text
@@ -85,7 +173,7 @@ export default function Dashboard() {
                 letterSpacing: -2,
                 lineHeight: 56,
               }}>
-              2.0
+              {quantity}
             </Text>
             <Text
               style={{
@@ -111,7 +199,7 @@ export default function Dashboard() {
                 Base rate
               </Text>
               <Text style={{ fontFamily: 'Poppins-SemiBold', fontSize: 16, color: '#FFF', marginTop: 2 }}>
-                ₹70/L
+                ₹{baseRate}/L
               </Text>
             </View>
             <View style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 12 }} />
@@ -120,7 +208,7 @@ export default function Dashboard() {
                 You pay
               </Text>
               <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 16, color: c.mint, marginTop: 2 }}>
-                ₹67/L
+                ₹{finalRate}/L
               </Text>
             </View>
             <View style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 12 }} />
@@ -129,7 +217,7 @@ export default function Dashboard() {
                 Saved
               </Text>
               <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 16, color: c.mint, marginTop: 2 }}>
-                ₹3/L
+                ₹{discountPerLitre}/L
               </Text>
             </View>
           </View>
@@ -171,20 +259,27 @@ export default function Dashboard() {
             Set up your daily milk delivery — choose type, quantity, and schedule.
           </Text>
           <Pressable
-          style={{
-            borderRadius:14
-          }}
-          className='border border-gray-200 space-x-2 py-3 rounded-2xl mt-5 flex-row items-center justify-center px-4 '
-          onPress={() => navigation.navigate('ManageDeliveryPlan')}>
-            <Text className='text-brand font-semibold'>Create Subscription</Text>
+            style={{ borderRadius: 14 }}
+            className="border border-gray-200 space-x-2 py-3 rounded-2xl mt-5 flex-row items-center justify-center px-4"
+            onPress={() => navigation.navigate('ManageDeliveryPlan')}>
+            <Text className="text-brand font-semibold">Create Subscription</Text>
           </Pressable>
         </View>
       )}
 
       <View style={{ flexDirection: 'row', marginTop: 5 }}>
-        <StatBox label="Referrals" value="3" hint="earning discounts" accent={c.brand} />
+        <StatBox
+          label="Referrals"
+          value={String(profile?.referrals_count ?? 0)}
+          hint="earning discounts"
+          accent={c.brand}
+        />
         <View style={{ width: 12 }} />
-        <StatBox label="Wallet" value="₹250" hint="ready to use" />
+        <StatBox
+          label="Wallet"
+          value={`₹${profile?.wallet_balance ?? profile?.profile?.wallet_balance ?? '0'}`}
+          hint="ready to use"
+        />
       </View>
 
       {hasSubscription ? (
@@ -212,7 +307,7 @@ export default function Dashboard() {
                 color: c.brand,
                 letterSpacing: -0.4,
               }}>
-              ₹134 saved
+              ₹{(discountPerLitre * 30 * Number(quantity || 1)).toFixed(0)} saved
             </Text>
           </View>
           <ChevronRight size={18} color={c.inkMuted} />
@@ -223,17 +318,18 @@ export default function Dashboard() {
         <>
           <SectionLabel>Shortcuts</SectionLabel>
           <View style={{ flexDirection: 'row' }}>
-        <Pressable
-          style={{
-            flex: 1,
-            backgroundColor: c.surface,
-            borderRadius: radius.md,
-            padding: 16,
-            alignItems: 'flex-start',
-            marginRight: 6,
-            borderWidth: 1,
-            borderColor: c.border,
-          }}>
+            <Pressable
+              onPress={() => navigation.navigate('ManageDeliveryPlan')}
+              style={{
+                flex: 1,
+                backgroundColor: c.surface,
+                borderRadius: radius.md,
+                padding: 16,
+                alignItems: 'flex-start',
+                marginRight: 6,
+                borderWidth: 1,
+                borderColor: c.border,
+              }}>
               <PauseCircle size={22} color={c.brand} strokeWidth={2} />
               <Text
                 style={{
@@ -246,6 +342,7 @@ export default function Dashboard() {
               </Text>
             </Pressable>
             <Pressable
+              onPress={() => navigation.navigate('ManageDeliveryPlan')}
               style={{
                 flex: 1,
                 backgroundColor: c.brand,
@@ -269,18 +366,7 @@ export default function Dashboard() {
         </>
       ) : null}
 
-      <SectionLabel
-        action={
-          hasSubscription ? (
-            <Pressable hitSlop={8}>
-              <Text style={{ fontFamily: 'Poppins-Medium', fontSize: 12, color: c.brand }}>
-                See all
-              </Text>
-            </Pressable>
-          ) : null
-        }>
-        Manage
-      </SectionLabel>
+      <SectionLabel>Manage</SectionLabel>
 
       <ListSection>
         {hasSubscription ? (
@@ -303,6 +389,7 @@ export default function Dashboard() {
           Icon={Users}
           title="Invite friends"
           subtitle="Earn ₹1/L per active referral"
+          onPress={() => navigation.navigate('Referrals')}
           last
           right={<ChevronRight size={16} color={c.inkMuted} />}
         />

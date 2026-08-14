@@ -37,9 +37,14 @@ export function DetailHeader({ title, onBack, right }) {
       }}>
       <Pressable
         onPress={onBack ?? (() => navigation.goBack())}
-        // hitSlop={8}
+        hitSlop={8}
         style={{
-          
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          backgroundColor: c.surface,
+          borderWidth: 1,
+          borderColor: c.border,
           alignItems: 'center',
           justifyContent: 'center',
         }}>
@@ -53,10 +58,11 @@ export function DetailHeader({ title, onBack, right }) {
           color: c.ink,
           textAlign: 'center',
           letterSpacing: -0.3,
+          paddingHorizontal: 8,
         }}>
         {title}
       </Text>
-      <View style={{  alignItems: 'flex-end' }}>{right ?? null}</View>
+      <View style={{ minWidth: 40, alignItems: 'flex-end' }}>{right ?? null}</View>
     </View>
   );
 }

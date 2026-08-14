@@ -18,6 +18,9 @@ import {
   PLACEHOLDER_COLOR,
 } from '../../components/auth/authForm';
 
+import { sendOTP } from '../../services/authService';
+import { ActivityIndicator } from 'react-native';
+
 const formatPhoneNumber = (text) => {
   const digits = text.replace(/\D/g, '').slice(0, 10);
   if (digits.length <= 5) return digits;
@@ -29,14 +32,33 @@ function LoginForm() {
   const { scrollToInput } = useKeyboardScroll() ?? {};
   const phoneInputRef = useRef(null);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const isValid = phoneNumber.replace(/\D/g, '').length === 10;
+  const rawPhone = phoneNumber.replace(/\D/g, '');
+  const isValid = rawPhone.length === 10;
 
-  const handleGetOtp = () => {
-    if (!isValid) return;
-    navigation.navigate('Otp', {
-      phoneNumber: phoneNumber.replace(/\D/g, ''),
-    });
+  const handleGetOtp = async () => {
+    if (!isValid || loading) return;
+    setLoading(true);
+    setErrorMessage('');
+
+    try {
+      await sendOTP(rawPhone);
+      navigation.navigate('Otp', {
+        phoneNumber: rawPhone,
+      });
+    } catch (error) {
+      console.error('Send OTP error:', error?.response?.data || error.message);
+      const msg =
+        error?.response?.data?.mobile_number?.[0] ||
+        error?.response?.data?.msg ||
+        error?.response?.data?.detail ||
+        'Failed to send OTP. Please check your connection and try again.';
+      setErrorMessage(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,18 +82,31 @@ function LoginForm() {
           placeholderTextColor={PLACEHOLDER_COLOR}
           keyboardType="phone-pad"
           value={phoneNumber}
-          onChangeText={(text) => setPhoneNumber(formatPhoneNumber(text))}
+          onChangeText={(text) => {
+            setErrorMessage('');
+            setPhoneNumber(formatPhoneNumber(text));
+          }}
           onFocus={() => scrollToInput?.(phoneInputRef.current)}
           maxLength={11}
           returnKeyType="done"
         />
       </View>
 
+      {errorMessage ? (
+        <Text className="mt-2 text-sm text-red-500 font-medium">
+          {errorMessage}
+        </Text>
+      ) : null}
+
       <Pressable
-        className={authButtonClass}
+        className={`${authButtonClass} ${!isValid || loading ? 'opacity-50' : ''}`}
         onPress={handleGetOtp}
-        disabled={!isValid}>
-        <Text className={authButtonTextClass}>Get OTP</Text>
+        disabled={!isValid || loading}>
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text className={authButtonTextClass}>Get OTP</Text>
+        )}
       </Pressable>
 
       <Text className={authFooterClass}>

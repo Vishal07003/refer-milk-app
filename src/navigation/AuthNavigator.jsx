@@ -1,8 +1,8 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import Login from '../screens/auth_screens/Login';
-import Otp from '../screens/auth_screens/Otp';
-import ProfileSetup from '../screens/auth_screens/ProfileSetup';
+import Login from '../screens/Auth/Login';
+import Otp from '../screens/Auth/Otp';
+import ProfileSetup from '../screens/Auth/ProfileSetup';
 
 const Stack = createNativeStackNavigator();
 

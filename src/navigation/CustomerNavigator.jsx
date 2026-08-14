@@ -4,15 +4,16 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SubscriptionProvider } from '../context/SubscriptionContext';
 import { BottomTabs } from '../components/customer/CustomerShell';
 import { c } from '../theme/customerTheme';
-import Bills from '../screens/customer_screens/Bills';
-import Dashboard from '../screens/customer_screens/Dashboard';
-import DeliveryAddress from '../screens/customer_screens/DeliveryAddress';
-import EditProfile from '../screens/customer_screens/EditProfile';
-import ManageDeliveryPlan from '../screens/customer_screens/ManageDeliveryPlan';
-import MilkReport from '../screens/customer_screens/MilkReport';
-import PaymentHistory from '../screens/customer_screens/PaymentHistory';
-import Profile from '../screens/customer_screens/Profile';
-import Referrals from '../screens/customer_screens/Referrals';
+import Bills from '../screens/Customer/Reports/Bills';
+import Dashboard from '../screens/Customer/Dashboard';
+import DeliveryAddress from '../screens/Customer/Profile/DeliveryAddress';
+import EditProfile from '../screens/Customer/Profile/EditProfile';
+import ManageDeliveryPlan from '../screens/Customer/Subscription/ManageDeliveryPlan';
+import MilkReport from '../screens/Customer/Reports/MilkReport';
+import PaymentHistory from '../screens/Customer/Payments/PaymentHistory';
+import Profile from '../screens/Customer/Profile/Profile';
+import Referrals from '../screens/Customer/Profile/Referrals';
+import Notifications from '../screens/Customer/Notifications';
 
 const Stack = createNativeStackNavigator();
 
@@ -56,6 +57,8 @@ export default function CustomerNavigator() {
         <Stack.Screen name="EditProfile" component={EditProfile} />
         <Stack.Screen name="DeliveryAddress" component={DeliveryAddress} />
         <Stack.Screen name="PaymentHistory" component={PaymentHistory} />
+        <Stack.Screen name="Referrals" component={Referrals} />
+        <Stack.Screen name="Notifications" component={Notifications} />
       </Stack.Navigator>
     </SubscriptionProvider>
   );

@@ -10,8 +10,8 @@ import {
   TestTube,
   Check,
 } from 'lucide-react-native';
-import { DetailHeader, DetailScreen, KeyValueRow, ListRow, ListSection, SectionLabel } from '../../components/customer/ui';
-import { c, radius } from '../../theme/customerTheme';
+import { DetailHeader, DetailScreen, KeyValueRow, ListRow, ListSection, SectionLabel } from '../../../components/customer/ui';
+import { c, radius } from '../../../theme/customerTheme';
 
 const metrics = [
   { label: 'Fat', value: '3.8%', Icon: Droplets },
@@ -47,7 +47,7 @@ export default function MilkReport() {
             color: c.ink,
             marginLeft: 8,
           }}>
-          28 May 2024
+          {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
         </Text>
       </View>
 

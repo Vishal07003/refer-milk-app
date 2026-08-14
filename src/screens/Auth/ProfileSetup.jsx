@@ -48,6 +48,8 @@ import {
   reverseGeocode,
   formatCoordinates,
 } from '../../services/location';
+import { updateProfile, applyReferral, addAddress } from '../../services/authService';
+import { useAuth } from '../../context/AuthContext';
 
 const TOTAL_STEPS = 3;
 const BRAND = '#2D5A36';
@@ -350,6 +352,68 @@ function ProfileSetupForm({
   canContinue,
 }) {
   const { scrollToInput } = useKeyboardScroll() ?? {};
+  const { restoreSession } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  const handleNext = async () => {
+    if (!canContinue || submitting) return;
+    if (step < TOTAL_STEPS) {
+      setStep((s) => s + 1);
+      return;
+    }
+
+    setSubmitting(true);
+    setSubmitError('');
+
+    try {
+      const nameParts = fullName.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      await updateProfile({
+        first_name: firstName,
+        last_name: lastName,
+      });
+
+      if (referralCode.trim()) {
+        try {
+          await applyReferral(referralCode.trim());
+        } catch (e) {
+          console.warn('Referral application warning:', e?.response?.data || e.message);
+        }
+      }
+
+      await addAddress({
+        label: 'home',
+        house_number: flatHouse.trim(),
+        street: floor.trim()
+          ? `Floor: ${floor.trim()}`
+          : landmark.trim()
+          ? `Landmark: ${landmark.trim()}`
+          : 'Street',
+        area: area.trim(),
+        city: 'City',
+        state: 'State',
+        pincode: '000000',
+        country: 'India',
+        latitude: latitude != null ? Number(latitude.toFixed(6)) : 0.0,
+        longitude: longitude != null ? Number(longitude.toFixed(6)) : 0.0,
+        is_default: true,
+      });
+
+      await restoreSession();
+    } catch (error) {
+      console.error('Submit Profile Error:', error?.response?.data || error.message);
+      const msg =
+        error?.response?.data?.msg ||
+        error?.response?.data?.detail ||
+        'Failed to save profile. Please check details and try again.';
+      setSubmitError(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -554,16 +618,23 @@ function ProfileSetupForm({
         </>
       )}
 
-      <Pressable
-        className={`${authButtonClass} ${!canContinue ? 'opacity-50' : ''}`}
-        onPress={() => {
-          if (!canContinue) return;
-          if (step < TOTAL_STEPS) setStep((s) => s + 1);
-        }}
-        disabled={!canContinue}>
-        <Text className={authButtonTextClass}>
-          {step < TOTAL_STEPS ? 'Continue' : 'Create My Account'}
+      {submitError ? (
+        <Text className="mt-3 text-center text-sm font-medium text-red-500">
+          {submitError}
         </Text>
+      ) : null}
+
+      <Pressable
+        className={`${authButtonClass} ${!canContinue || submitting ? 'opacity-50' : ''}`}
+        onPress={handleNext}
+        disabled={!canContinue || submitting}>
+        {submitting ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text className={authButtonTextClass}>
+            {step < TOTAL_STEPS ? 'Continue' : 'Create My Account'}
+          </Text>
+        )}
       </Pressable>
     </>
   );
