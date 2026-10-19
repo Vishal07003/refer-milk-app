@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,13 +15,12 @@ import AppKeyboardAwareScrollView, {
 } from '../../components/AppKeyboardAwareScrollView';
 import { useAuthLayoutMetrics } from '../../hooks/useScreenMetrics';
 import { cardShadowLg } from '../../theme/shadows';
+import { fonts } from '../../theme/fonts';
 import {
   authTitleClass,
   authSubtitleClass,
   authLabelClass,
   authOptionalClass,
-  authButtonClass,
-  authButtonTextClass,
   inputClass,
   inputRowClass,
   prefixBoxClass,
@@ -29,35 +28,25 @@ import {
   PLACEHOLDER_COLOR,
 } from '../../components/auth/authForm';
 import {
-  MapPin,
-  MapPinCheck,
   Check,
   User,
   Home,
   Gift,
-  Bell,
+  MapPin,
+  Navigation,
 } from 'lucide-react-native';
-import LocationMap from '../../components/LocationMap';
-import {
-  requestLocationPermission,
-  checkNotificationPermission,
-  openSettings,
-} from '../../services/permissions';
-import {
-  getCurrentPosition,
-  reverseGeocode,
-  formatCoordinates,
-} from '../../services/location';
 import { updateProfile, applyReferral, addAddress } from '../../services/authService';
+import { getCurrentPosition, reverseGeocode } from '../../services/location';
+import { requestLocationPermission } from '../../services/permissions';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 2;
 const BRAND = '#2D5A36';
 
 const STEPS = [
   { label: 'Details', icon: User },
-  { label: 'Location', icon: MapPin },
-  { label: 'Address', icon: Home },
+  { label: 'Delivery Address', icon: Home },
 ];
 
 function StepIndicator({ currentStep }) {
@@ -121,9 +110,7 @@ export default function ProfileSetup() {
   const phoneNumber = route.params?.phoneNumber ?? '';
 
   const {
-    logoSize,
     brandPaddingTop,
-    brandPaddingBottom,
     titleFontSize,
     titleMarginTop,
     cardPaddingTop,
@@ -134,84 +121,18 @@ export default function ProfileSetup() {
   const [step, setStep] = useState(1);
   const [fullName, setFullName] = useState('');
   const [referralCode, setReferralCode] = useState('');
-  const [locationCaptured, setLocationCaptured] = useState(false);
+
+  // Reusable address fields (no default Sangola / 413307 / Nashik)
+  const [addressLabel, setAddressLabel] = useState('home');
+  const [flatHouse, setFlatHouse] = useState('');
+  const [buildingSociety, setBuildingSociety] = useState('');
+  const [streetArea, setStreetArea] = useState('');
+  const [landmark, setLandmark] = useState('');
+  const [city, setCity] = useState('');
+  const [stateName, setStateName] = useState('Maharashtra');
+  const [pincode, setPincode] = useState('');
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
-  const [locationAddress, setLocationAddress] = useState('');
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationError, setLocationError] = useState('');
-  const [notificationsEnabled, setNotificationsEnabled] = useState(null);
-  const [flatHouse, setFlatHouse] = useState('');
-  const [floor, setFloor] = useState('');
-  const [area, setArea] = useState('');
-  const [landmark, setLandmark] = useState('');
-
-  const handleCaptureLocation = useCallback(async () => {
-    if (locationLoading) {
-      return;
-    }
-
-    setLocationLoading(true);
-    setLocationError('');
-
-    try {
-      const granted = await requestLocationPermission();
-      if (!granted) {
-        setLocationError(
-          'Location access is required to confirm your delivery drop-off point.',
-        );
-        return;
-      }
-
-      const coords = await getCurrentPosition();
-      const geocoded = await reverseGeocode(coords.latitude, coords.longitude);
-
-      setLatitude(coords.latitude);
-      setLongitude(coords.longitude);
-      setLocationAddress(geocoded.displayName);
-      setLocationCaptured(true);
-
-      setArea((current) => geocoded.locality || current);
-    } catch (error) {
-      setLocationError(
-        error?.message ?? 'Unable to get your location. Please try again.',
-      );
-    } finally {
-      setLocationLoading(false);
-    }
-  }, [locationLoading]);
-
-  useEffect(() => {
-    if (step !== 2) {
-      return;
-    }
-
-    let isActive = true;
-
-    checkNotificationPermission()
-      .then((granted) => {
-        if (isActive) {
-          setNotificationsEnabled(granted);
-        }
-      })
-      .catch(() => {
-        if (isActive) {
-          setNotificationsEnabled(false);
-        }
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [step]);
-
-  const handleBack = () => {
-    if (step > 1) {
-      setStep((current) => current - 1);
-      return;
-    }
-    navigation.goBack();
-  };
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (event) => {
@@ -225,8 +146,7 @@ export default function ProfileSetup() {
 
   const subtitles = {
     1: 'Tell us a bit about yourself to get started.',
-    2: 'Confirm your exact milk delivery drop-off point.',
-    3: 'Enter your complete delivery address details.',
+    2: 'Enter your delivery address for daily farm-fresh milk.',
   };
 
   const formatPhone = (phone) => {
@@ -235,12 +155,14 @@ export default function ProfileSetup() {
   };
 
   const isStep1Valid = fullName.trim().length > 0;
-  const isStep2Valid = locationCaptured && latitude != null && longitude != null;
-  const isStep3Valid = flatHouse.trim().length > 0 && area.trim().length > 0;
-  const canContinue =
-    (step === 1 && isStep1Valid) ||
-    (step === 2 && isStep2Valid) ||
-    (step === 3 && isStep3Valid);
+  const isPinValid = /^[1-9][0-9]{5}$/.test(pincode.trim());
+  const isStep2Valid =
+    flatHouse.trim().length > 0 &&
+    streetArea.trim().length > 0 &&
+    city.trim().length > 0 &&
+    isPinValid;
+
+  const canContinue = (step === 1 && isStep1Valid) || (step === 2 && isStep2Valid);
 
   const contentMinHeight = screenHeight - insets.top - insets.bottom;
 
@@ -297,23 +219,26 @@ export default function ProfileSetup() {
             setFullName={setFullName}
             referralCode={referralCode}
             setReferralCode={setReferralCode}
-            locationCaptured={locationCaptured}
-            latitude={latitude}
-            longitude={longitude}
-            locationAddress={locationAddress}
-            locationLoading={locationLoading}
-            locationError={locationError}
-            notificationsEnabled={notificationsEnabled}
-            onCaptureLocation={handleCaptureLocation}
-            onOpenSettings={openSettings}
+            addressLabel={addressLabel}
+            setAddressLabel={setAddressLabel}
             flatHouse={flatHouse}
             setFlatHouse={setFlatHouse}
-            floor={floor}
-            setFloor={setFloor}
-            area={area}
-            setArea={setArea}
+            buildingSociety={buildingSociety}
+            setBuildingSociety={setBuildingSociety}
+            streetArea={streetArea}
+            setStreetArea={setStreetArea}
             landmark={landmark}
             setLandmark={setLandmark}
+            city={city}
+            setCity={setCity}
+            stateName={stateName}
+            setStateName={setStateName}
+            pincode={pincode}
+            setPincode={setPincode}
+            latitude={latitude}
+            setLatitude={setLatitude}
+            longitude={longitude}
+            setLongitude={setLongitude}
             canContinue={canContinue}
           />
         </View>
@@ -332,34 +257,128 @@ function ProfileSetupForm({
   setFullName,
   referralCode,
   setReferralCode,
-  locationCaptured,
-  latitude,
-  longitude,
-  locationAddress,
-  locationLoading,
-  locationError,
-  notificationsEnabled,
-  onCaptureLocation,
-  onOpenSettings,
+  addressLabel,
+  setAddressLabel,
   flatHouse,
   setFlatHouse,
-  floor,
-  setFloor,
-  area,
-  setArea,
+  buildingSociety,
+  setBuildingSociety,
+  streetArea,
+  setStreetArea,
   landmark,
   setLandmark,
+  city,
+  setCity,
+  stateName,
+  setStateName,
+  pincode,
+  setPincode,
+  latitude,
+  setLatitude,
+  longitude,
+  setLongitude,
   canContinue,
 }) {
   const { scrollToInput } = useKeyboardScroll() ?? {};
-  const { restoreSession } = useAuth();
+  const { completeProfileSetup } = useAuth();
+  const toastContext = useToast();
+  const showToast = toastContext?.showToast || ((msg) => console.log('[Toast]', msg));
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [locatingGps, setLocatingGps] = useState(false);
+
+  const handleCaptureLocation = async () => {
+    if (locatingGps) return;
+    setLocatingGps(true);
+    setSubmitError('');
+
+    try {
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        showToast(
+          'Location permission denied. You can enter your address manually.',
+          'info'
+        );
+        return;
+      }
+
+      const pos = await getCurrentPosition();
+      if (!pos || typeof pos.latitude !== 'number' || typeof pos.longitude !== 'number') {
+        throw new Error('Valid GPS coordinates could not be retrieved.');
+      }
+
+      setLatitude(Number(pos.latitude.toFixed(6)));
+      setLongitude(Number(pos.longitude.toFixed(6)));
+
+      // Reverse geocode to autofill address fields when available without overwriting non-empty fields
+      try {
+        const geoInfo = await reverseGeocode(pos.latitude, pos.longitude);
+        if (geoInfo) {
+          if (!streetArea.trim() && geoInfo.locality) {
+            setStreetArea(geoInfo.locality);
+          }
+          if (!city.trim() && geoInfo.city) {
+            setCity(geoInfo.city);
+          }
+          if (!pincode.trim() && geoInfo.pincode) {
+            setPincode(geoInfo.pincode);
+          }
+          if (geoInfo.state) {
+            setStateName(geoInfo.state);
+          }
+        }
+      } catch (geoErr) {
+        console.warn('Reverse geocode note (non-fatal):', geoErr?.message);
+      }
+
+      showToast('Location captured successfully!', 'success');
+    } catch (err) {
+      console.warn('GPS location error:', err?.message || err);
+      showToast(
+        err?.message || 'Could not retrieve GPS location. Manual address entry remains available.',
+        'info'
+      );
+    } finally {
+      setLocatingGps(false);
+    }
+  };
+
+  const handleClearLocation = () => {
+    setLatitude(null);
+    setLongitude(null);
+  };
 
   const handleNext = async () => {
-    if (!canContinue || submitting) return;
     if (step < TOTAL_STEPS) {
+      if (!fullName.trim()) {
+        setSubmitError('Please enter your full name.');
+        return;
+      }
+      setSubmitError('');
       setStep((s) => s + 1);
+      return;
+    }
+
+    // Step 2 Validation
+    if (!flatHouse.trim()) {
+      setSubmitError('Please enter your house or flat number.');
+      return;
+    }
+    if (!streetArea.trim()) {
+      setSubmitError('Please enter your street or area.');
+      return;
+    }
+    if (!city.trim()) {
+      setSubmitError('Please enter your city.');
+      return;
+    }
+    const cleanPin = pincode.trim();
+    if (!cleanPin) {
+      setSubmitError('Please enter your 6-digit pincode.');
+      return;
+    }
+    if (!/^[1-9][0-9]{5}$/.test(cleanPin)) {
+      setSubmitError('Please enter a valid 6-digit Indian PIN code (e.g. 413307).');
       return;
     }
 
@@ -367,9 +386,9 @@ function ProfileSetupForm({
     setSubmitError('');
 
     try {
-      const nameParts = fullName.trim().split(' ');
+      const nameParts = fullName.trim().split(/\s+/);
       const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
+      const lastName = nameParts.slice(1).join(' ');
 
       await updateProfile({
         first_name: firstName,
@@ -384,25 +403,33 @@ function ProfileSetupForm({
         }
       }
 
+      // Build composite street preserving building/society and landmark
+      const streetParts = [streetArea.trim()];
+      if (buildingSociety.trim()) streetParts.push(`Building: ${buildingSociety.trim()}`);
+      if (landmark.trim()) streetParts.push(`Landmark: ${landmark.trim()}`);
+      const streetValue = streetParts.join(' | ');
+
+      const numLat = typeof latitude === 'number' && !isNaN(latitude) ? Number(latitude.toFixed(6)) : null;
+      const numLng = typeof longitude === 'number' && !isNaN(longitude) ? Number(longitude.toFixed(6)) : null;
+
       await addAddress({
-        label: 'home',
+        label: addressLabel.toLowerCase(),
         house_number: flatHouse.trim(),
-        street: floor.trim()
-          ? `Floor: ${floor.trim()}`
-          : landmark.trim()
-          ? `Landmark: ${landmark.trim()}`
-          : 'Street',
-        area: area.trim(),
-        city: 'City',
-        state: 'State',
-        pincode: '000000',
+        street: streetValue,
+        area: streetArea.trim(),
+        city: city.trim(),
+        state: stateName.trim() || 'Maharashtra',
+        pincode: cleanPin,
         country: 'India',
-        latitude: latitude != null ? Number(latitude.toFixed(6)) : 0.0,
-        longitude: longitude != null ? Number(longitude.toFixed(6)) : 0.0,
+        latitude: numLat,
+        longitude: numLng,
         is_default: true,
       });
 
-      await restoreSession();
+      await completeProfileSetup({
+        first_name: firstName,
+        last_name: lastName,
+      });
     } catch (error) {
       console.error('Submit Profile Error:', error?.response?.data || error.message);
       const msg =
@@ -414,6 +441,12 @@ function ProfileSetupForm({
       setSubmitting(false);
     }
   };
+
+  const addressTypes = [
+    { key: 'home', label: 'Home' },
+    { key: 'work', label: 'Work' },
+    { key: 'other', label: 'Other' },
+  ];
 
   return (
     <>
@@ -475,94 +508,149 @@ function ProfileSetupForm({
       )}
 
       {step === 2 && (
-        <>
-          <View style={{ marginTop: 18, height: 180 }} collapsable={false}>
-            <LocationMap latitude={latitude} longitude={longitude} height={180} />
-            {locationLoading && (
-              <View
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: 'rgba(255,255,255,0.7)',
-                  borderRadius: 12,
-                }}>
-                <ActivityIndicator size="large" color={BRAND} />
-              </View>
-            )}
-            {locationCaptured && !locationLoading && (
-              <View className="absolute bottom-2 left-2 right-3 flex-row items-center rounded-xl bg-white px-4 py-3">
-                <MapPinCheck size={18} color={BRAND} strokeWidth={2} />
-                <Text className="ml-2 font-semibold text-xs text-brand">
-                  Location captured
-                </Text>
-              </View>
-            )}
+        <View style={{ marginTop: 18 }}>
+          {/* Address Type Pill Selector */}
+          <Text
+            style={{
+              fontFamily: fonts.semiBold,
+              fontSize: 13,
+              color: '#374151',
+              marginBottom: 8,
+            }}>
+            Address Type
+          </Text>
+          <View style={{ flexDirection: 'row', marginBottom: 16 }}>
+            {addressTypes.map((item) => {
+              const selected = addressLabel === item.key;
+              return (
+                <Pressable
+                  key={item.key}
+                  onPress={() => setAddressLabel(item.key)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 9,
+                    borderRadius: 10,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginHorizontal: 3,
+                    backgroundColor: selected ? '#E8F0EA' : '#F9FAFB',
+                    borderWidth: 1.5,
+                    borderColor: selected ? BRAND : '#E5E7EB',
+                  }}>
+                  <Text
+                    style={{
+                      fontFamily: selected ? fonts.bold : fonts.medium,
+                      fontSize: 13,
+                      color: selected ? BRAND : '#4B5563',
+                    }}>
+                    {item.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
 
-          <Text className="mt-4 font-semibold text-sm text-gray-700">
-            Your Location
-          </Text>
-          {locationCaptured ? (
-            <>
-            <Text className="mt-1 font-sans text-xs text-gray-500">
-                {locationAddress}
-              </Text>
-              <Text className="mt-1 font-sans text-xs text-gray-500">
-                {formatCoordinates(latitude, longitude)}
-              </Text>
-            </>
-          ) : (
-            <Text className="mt-2 font-sans text-sm leading-[22px] text-gray-500">
-              Tap the button below to use your current GPS location for delivery.
-            </Text>
-          )}
+          {/* Customer-Friendly "Use Current Location" Card (coordinates hidden) */}
+          <View
+            style={{
+              backgroundColor: latitude && longitude ? '#F0FDF4' : '#F8FAF9',
+              borderRadius: 14,
+              borderWidth: 1.5,
+              borderColor: latitude && longitude ? '#BBF7D0' : '#E2E8F0',
+              padding: 14,
+              marginBottom: 16,
+            }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.bold,
+                    fontSize: 13,
+                    color: latitude && longitude ? '#166534' : '#111827',
+                  }}>
+                  {latitude && longitude ? 'GPS Location Attached' : 'Attach GPS Location (Optional)'}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.regular,
+                    fontSize: 11.5,
+                    color: latitude && longitude ? '#15803D' : '#6B7280',
+                    marginTop: 2,
+                  }}>
+                  {latitude && longitude
+                    ? 'Accurate delivery location pinned'
+                    : 'Autofills area, city & helps doorstep delivery'}
+                </Text>
+              </View>
 
-          {locationError ? (
-            <View className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-              <Text className="font-sans text-sm text-red-600">{locationError}</Text>
               <Pressable
-                className="mt-2 self-start active:opacity-85"
-                onPress={onOpenSettings}>
-                <Text className="font-semibold text-sm text-brand">Open Settings</Text>
+                onPress={handleCaptureLocation}
+                disabled={locatingGps}
+                style={{
+                  backgroundColor: latitude && longitude ? '#DCFCE7' : BRAND,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}>
+                {locatingGps ? (
+                  <ActivityIndicator size="small" color={latitude && longitude ? '#166534' : '#FFFFFF'} />
+                ) : (
+                  <>
+                    <Navigation
+                      size={14}
+                      color={latitude && longitude ? '#166534' : '#FFFFFF'}
+                      strokeWidth={2.2}
+                      style={{ marginRight: 5 }}
+                    />
+                    <Text
+                      style={{
+                        fontFamily: fonts.bold,
+                        fontSize: 12,
+                        color: latitude && longitude ? '#166534' : '#FFFFFF',
+                      }}>
+                      {latitude && longitude ? 'Re-detect' : 'Use Current Location'}
+                    </Text>
+                  </>
+                )}
               </Pressable>
             </View>
-          ) : null}
 
-          {notificationsEnabled === false && (
-            <View className="mt-3 flex-row items-start rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <Bell size={16} color="#B45309" strokeWidth={2} />
-              <Text className="ml-2 flex-1 font-sans text-sm leading-[20px] text-amber-800">
-                Enable notifications to receive delivery updates and order alerts.
-              </Text>
-            </View>
-          )}
+            {latitude && longitude ? (
+              <View
+                style={{
+                  marginTop: 8,
+                  flexDirection: 'row',
+                  justifyContent: 'flex-end',
+                }}>
+                <Pressable onPress={handleClearLocation} hitSlop={6}>
+                  <Text
+                    style={{
+                      fontFamily: fonts.medium,
+                      fontSize: 11,
+                      color: '#EF4444',
+                    }}>
+                    Remove GPS Pin
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
 
-          <Pressable
-            className={`mt-5 items-center rounded-xl border border-brand py-4 active:opacity-90 ${locationLoading ? 'opacity-60' : ''}`}
-            onPress={onCaptureLocation}
-            disabled={locationLoading}>
-            {locationLoading ? (
-              <ActivityIndicator color={BRAND} />
-            ) : (
-              <Text className="font-semibold text-base text-brand">
-                {locationCaptured ? 'Refresh Location' : 'Use Current Location'}
-              </Text>
-            )}
-          </Pressable>
-        </>
-      )}
-
-      {step === 3 && (
-        <>
-          <Text className={authLabelClass}>Flat / House no / Building name</Text>
+          {/* House / Flat No (Required) */}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text className={authLabelClass}>House / Flat / Block No.</Text>
+            <Text style={{ color: '#DC2626', fontSize: 14, fontWeight: '700', marginLeft: 4 }}>*</Text>
+          </View>
           <TextInput
-            className={`mt-3 ${inputClass}`}
-            placeholder="e.g. Flat 302, Green Valley Apartments"
+            className={`mt-2 ${inputClass}`}
+            placeholder="e.g. Flat 302, Block B"
             placeholderTextColor={PLACEHOLDER_COLOR}
             value={flatHouse}
             onChangeText={setFlatHouse}
@@ -570,69 +658,123 @@ function ProfileSetupForm({
             returnKeyType="next"
           />
 
-          <View className="mt-7 flex-row items-center">
-            <Text className="font-semibold text-sm text-black">Floor</Text>
+          {/* Building / Society Name (Optional) */}
+          <View className="mt-5 flex-row items-center">
+            <Text className="font-semibold text-sm text-black">Building / Society Name</Text>
             <Text className={authOptionalClass}>(optional)</Text>
           </View>
           <TextInput
-            className={`mt-3 ${inputClass}`}
-            placeholder="e.g. 3rd Floor"
+            className={`mt-2 ${inputClass}`}
+            placeholder="e.g. Green Valley Apartments"
             placeholderTextColor={PLACEHOLDER_COLOR}
-            value={floor}
-            onChangeText={setFloor}
+            value={buildingSociety}
+            onChangeText={setBuildingSociety}
             onFocus={(e) => scrollToInput?.(e.target)}
             returnKeyType="next"
           />
 
-          <Text className={authLabelClass}>Area / Sector / Locality</Text>
-          <View className={inputRowClass}>
-            <TextInput
-              className={prefixInputClass}
-              placeholder="Enter your locality"
-              placeholderTextColor={PLACEHOLDER_COLOR}
-              value={area}
-              onChangeText={setArea}
-              onFocus={(e) => scrollToInput?.(e.target)}
-              returnKeyType="next"
-            />
-            <Pressable
-              className="mr-2 items-center justify-center rounded-lg px-3 py-2 active:opacity-85"
-              onPress={() => setArea('')}>
-              <Text className="font-semibold text-xs text-center text-brand">Change</Text>
-            </Pressable>
+          {/* Street / Area / Locality (Required) */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 20 }}>
+            <Text className={authLabelClass}>Street / Area / Locality</Text>
+            <Text style={{ color: '#DC2626', fontSize: 14, fontWeight: '700', marginLeft: 4 }}>*</Text>
           </View>
+          <TextInput
+            className={`mt-2 ${inputClass}`}
+            placeholder="Enter street or area"
+            placeholderTextColor={PLACEHOLDER_COLOR}
+            value={streetArea}
+            onChangeText={setStreetArea}
+            onFocus={(e) => scrollToInput?.(e.target)}
+            returnKeyType="next"
+          />
 
-          <View className="mt-7 flex-row items-center">
-            <Text className="font-semibold text-sm text-black">Nearby landmark</Text>
+          {/* Nearby Landmark (Optional) */}
+          <View className="mt-5 flex-row items-center">
+            <Text className="font-semibold text-sm text-black">Nearby Landmark</Text>
             <Text className={authOptionalClass}>(optional)</Text>
           </View>
           <TextInput
-            className={`mt-3 ${inputClass}`}
-            placeholder="e.g. Near City Mall"
+            className={`mt-2 ${inputClass}`}
+            placeholder="e.g. Near City Mall, Opposite Bank"
             placeholderTextColor={PLACEHOLDER_COLOR}
             value={landmark}
             onChangeText={setLandmark}
             onFocus={(e) => scrollToInput?.(e.target)}
-            returnKeyType="done"
+            returnKeyType="next"
           />
-        </>
+
+          {/* City & Pincode Grid */}
+          <View style={{ flexDirection: 'row', marginTop: 20 }}>
+            {/* City (Required) */}
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text className={authLabelClass}>City</Text>
+                <Text style={{ color: '#DC2626', fontSize: 14, fontWeight: '700', marginLeft: 4 }}>*</Text>
+              </View>
+              <TextInput
+                className={`mt-2 ${inputClass}`}
+                placeholder="Enter city"
+                placeholderTextColor={PLACEHOLDER_COLOR}
+                value={city}
+                onChangeText={setCity}
+                onFocus={(e) => scrollToInput?.(e.target)}
+                returnKeyType="next"
+              />
+            </View>
+
+            {/* Pincode (Required) */}
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text className={authLabelClass}>Pincode</Text>
+                <Text style={{ color: '#DC2626', fontSize: 14, fontWeight: '700', marginLeft: 4 }}>*</Text>
+              </View>
+              <TextInput
+                className={`mt-2 ${inputClass}`}
+                placeholder="Enter 6-digit pincode"
+                placeholderTextColor={PLACEHOLDER_COLOR}
+                value={pincode}
+                onChangeText={setPincode}
+                onFocus={(e) => scrollToInput?.(e.target)}
+                keyboardType="numeric"
+                maxLength={6}
+                returnKeyType="done"
+              />
+            </View>
+          </View>
+        </View>
       )}
 
       {submitError ? (
-        <Text className="mt-3 text-center text-sm font-medium text-red-500">
+        <Text className="mt-4 text-center text-sm font-medium text-red-500">
           {submitError}
         </Text>
       ) : null}
 
       <Pressable
-        className={`${authButtonClass} ${!canContinue || submitting ? 'opacity-50' : ''}`}
+        style={{
+          width: '100%',
+          height: 54,
+          borderRadius: 14,
+          backgroundColor: BRAND,
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'row',
+          marginTop: 28,
+          opacity: !canContinue || submitting ? 0.65 : 1,
+        }}
         onPress={handleNext}
         disabled={!canContinue || submitting}>
         {submitting ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <ActivityIndicator color="#FFFFFF" size="small" />
         ) : (
-          <Text className={authButtonTextClass}>
-            {step < TOTAL_STEPS ? 'Continue' : 'Create My Account'}
+          <Text
+            style={{
+              color: '#FFFFFF',
+              fontFamily: fonts.bold,
+              fontSize: 16,
+              fontWeight: '700',
+            }}>
+            {step < TOTAL_STEPS ? 'Continue' : 'Complete Setup & Continue'}
           </Text>
         )}
       </Pressable>

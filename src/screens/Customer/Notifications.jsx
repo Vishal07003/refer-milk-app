@@ -6,6 +6,7 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
@@ -15,6 +16,7 @@ import {
   Gift,
   Package,
   CheckCheck,
+  Trash2,
 } from 'lucide-react-native';
 import {
   Chip,
@@ -22,12 +24,14 @@ import {
   DetailScreen,
   Surface,
 } from '../../components/customer/ui';
+import AppThemedDialog from '../../components/AppThemedDialog';
 import { c, radius } from '../../theme/customerTheme';
 import { useToast } from '../../context/ToastContext';
 import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  clearAllNotifications,
 } from '../../services/authService';
 
 export default function Notifications() {
@@ -39,6 +43,8 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const fetchNotifications = async () => {
     try {
@@ -92,6 +98,29 @@ export default function Notifications() {
     }
   };
 
+  const handleClearAll = () => {
+    if (notifications.length === 0 || clearingAll) return;
+    setShowClearConfirm(true);
+  };
+
+  const executeClearAll = async () => {
+    if (clearingAll) return;
+    setClearingAll(true);
+    try {
+      await clearAllNotifications();
+      setNotifications([]);
+      setUnreadCount(0);
+      setShowClearConfirm(false);
+      showToast('Notifications cleared successfully', 'success');
+    } catch (err) {
+      console.error('Error clearing notifications:', err);
+      setShowClearConfirm(false);
+      showToast('Failed to clear notifications', 'error');
+    } finally {
+      setClearingAll(false);
+    }
+  };
+
   const getIconForType = (type) => {
     switch (type) {
       case 'subscription':
@@ -128,28 +157,54 @@ export default function Notifications() {
         title="Notifications"
         onBack={() => navigation.goBack()}
         right={
-          unreadCount > 0 ? (
-            <Pressable
-              onPress={handleMarkAllRead}
-              disabled={markingAll}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: c.mintSoft,
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: radius.pill,
-              }}>
-              <CheckCheck size={14} color={c.brand} style={{ marginRight: 4 }} />
-              <Text
+          notifications.length > 0 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {unreadCount > 0 && (
+                <Pressable
+                  onPress={handleMarkAllRead}
+                  disabled={markingAll || clearingAll}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: c.mintSoft,
+                    paddingHorizontal: 8,
+                    paddingVertical: 5,
+                    borderRadius: radius.pill,
+                    marginRight: 6,
+                  }}>
+                  <CheckCheck size={13} color={c.brand} style={{ marginRight: 3 }} />
+                  <Text
+                    style={{
+                      fontFamily: 'Poppins-SemiBold',
+                      fontSize: 10,
+                      color: c.brand,
+                    }}>
+                    Mark read
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                onPress={handleClearAll}
+                disabled={clearingAll || markingAll}
                 style={{
-                  fontFamily: 'Poppins-SemiBold',
-                  fontSize: 11,
-                  color: c.brand,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#FEE2E2',
+                  paddingHorizontal: 8,
+                  paddingVertical: 5,
+                  borderRadius: radius.pill,
                 }}>
-                Mark all read
-              </Text>
-            </Pressable>
+                <Trash2 size={13} color="#DC2626" style={{ marginRight: 3 }} />
+                <Text
+                  style={{
+                    fontFamily: 'Poppins-SemiBold',
+                    fontSize: 10,
+                    color: '#DC2626',
+                  }}>
+                  {clearingAll ? 'Clearing...' : 'Clear All'}
+                </Text>
+              </Pressable>
+            </View>
           ) : null
         }
       />
@@ -261,6 +316,22 @@ export default function Notifications() {
           ))}
         </View>
       )}
+
+      {/* Themed Confirmation Dialog for Clear All Notifications */}
+      <AppThemedDialog
+        visible={showClearConfirm}
+        type="delete"
+        title="Clear All Notifications?"
+        message="This will remove all notifications from your notification list. This action cannot be undone."
+        confirmText="Clear All"
+        cancelText="Cancel"
+        isDestructive={true}
+        loading={clearingAll}
+        onConfirm={executeClearAll}
+        onCancel={() => {
+          if (!clearingAll) setShowClearConfirm(false);
+        }}
+      />
     </DetailScreen>
   );
 }

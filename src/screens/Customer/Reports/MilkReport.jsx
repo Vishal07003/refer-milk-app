@@ -1,212 +1,192 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, Pressable } from 'react-native';
 import {
-  Calendar,
-  CircleHelp,
-  ClipboardCheck,
-  Droplets,
-  FlaskConical,
   ShieldCheck,
-  TestTube,
-  Check,
+  FlaskConical,
+  Award,
+  CheckCircle2,
+  Droplets,
+  Clock,
+  Sparkles,
 } from 'lucide-react-native';
-import { DetailHeader, DetailScreen, KeyValueRow, ListRow, ListSection, SectionLabel } from '../../../components/customer/ui';
-import { c, radius } from '../../../theme/customerTheme';
-
-const metrics = [
-  { label: 'Fat', value: '3.8%', Icon: Droplets },
-  { label: 'SNF', value: '8.6%', Icon: FlaskConical },
-  { label: 'Added Water', value: '0%', Icon: TestTube },
-  { label: 'Density', value: '29.0', Icon: ClipboardCheck },
-  { label: 'Protein', value: '3.2%', Icon: TestTube },
-  { label: 'Lactose', value: '4.7%', Icon: Droplets },
-];
-
-const labDetails = [
-  { label: 'Tested Time', value: '05:15 AM' },
-  { label: 'Tested By', value: 'Refer Milk Lab, Sangola' },
-  { label: 'Report ID', value: 'RM280524001' },
-];
-
-const photos = ['Milk Sample', 'Testing Machine', 'Lab Report'];
+import { DetailHeader, DetailScreen } from '../../../components/customer/ui';
+import { appColors, radius, shadow, swatches } from '../../../theme/customerTheme';
+import { fonts } from '../../../theme/fonts';
 
 export default function MilkReport() {
   return (
     <DetailScreen>
-      <DetailHeader
-        title="Daily Milk Test Report"
-        right={<CircleHelp size={22} color={c.brand} strokeWidth={2} />}
-      />
+      <DetailHeader title="Milk Quality Standards" />
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-        <Calendar size={16} color={c.brand} strokeWidth={2} />
-        <Text
-          style={{
-            fontFamily: 'Poppins-Medium',
-            fontSize: 14,
-            color: c.ink,
-            marginLeft: 8,
-          }}>
-          {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-        </Text>
-      </View>
-
-      <ListSection style={{ overflow: 'hidden' }}>
+      <View style={{ gap: 14 }}>
+        {/* Farm-Fresh Sangola Dairy Guarantee Hero */}
         <View
           style={{
-            backgroundColor: c.brand,
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-          }}>
-          <Text style={{ fontFamily: 'Poppins-SemiBold', fontSize: 14, color: '#FFF' }}>
-            Today's Milk Quality Report
-          </Text>
-        </View>
-
-        {metrics.map((item) => (
-          <ListRow
-            key={item.label}
-            Icon={item.Icon}
-            title={item.label}
-            last={false}
-            right={
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text
-                  style={{
-                    fontFamily: 'Poppins-Bold',
-                    fontSize: 14,
-                    color: c.ink,
-                    marginRight: 10,
-                  }}>
-                  {item.value}
-                </Text>
-                <View
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 11,
-                    backgroundColor: c.brand,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                  <Check size={12} color="#FFF" strokeWidth={3} />
-                </View>
-              </View>
-            }
-          />
-        ))}
-
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: c.surfaceMuted,
-            paddingHorizontal: 16,
-            paddingVertical: 14,
-            borderTopWidth: 1,
-            borderTopColor: c.border,
+            backgroundColor: appColors.primary,
+            borderRadius: 20,
+            padding: 20,
+            ...shadow.soft,
           }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <ShieldCheck size={20} color={c.brand} strokeWidth={2} />
-            <Text
+            <View
               style={{
-                fontFamily: 'Poppins-SemiBold',
-                fontSize: 14,
-                color: c.ink,
-                marginLeft: 8,
+                width: 42,
+                height: 42,
+                borderRadius: 21,
+                backgroundColor: 'rgba(255,255,255,0.18)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12,
               }}>
-              Purity Status
-            </Text>
+              <Award size={22} color="#FFFFFF" strokeWidth={2.2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontFamily: fonts.bold,
+                  fontSize: 16,
+                  color: '#FFFFFF',
+                }}>
+                Refer Milk Purity Guarantee
+              </Text>
+              <Text
+                style={{
+                  fontFamily: fonts.regular,
+                  fontSize: 12,
+                  color: swatches.emerald200,
+                  marginTop: 2,
+                }}>
+                Sangola Dairy Testing Facility • 100% Raw & Pure
+              </Text>
+            </View>
           </View>
+
           <View
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: c.brand,
-              borderRadius: radius.pill,
-              paddingHorizontal: 16,
-              paddingVertical: 8,
+              marginTop: 16,
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: 'rgba(255,255,255,0.12)',
             }}>
-            <Check size={14} color="#FFF" strokeWidth={3} />
             <Text
               style={{
-                fontFamily: 'Poppins-Bold',
-                fontSize: 13,
-                color: '#FFF',
-                marginLeft: 6,
+                fontFamily: fonts.regular,
+                fontSize: 12,
+                color: '#FFFFFF',
+                lineHeight: 18,
               }}>
-              PASS
+              Every batch of milk delivered by Refer Milk is tested daily for purity, density, and zero chemical adulterants before morning dispatch.
             </Text>
           </View>
         </View>
-      </ListSection>
 
-      <SectionLabel>Lab & Test Details</SectionLabel>
-      <ListSection>
-        {labDetails.map((row, index) => (
-          <KeyValueRow
-            key={row.label}
-            label={row.label}
-            value={row.value}
-            last={index === labDetails.length - 1}
-          />
-        ))}
-      </ListSection>
-
-      <SectionLabel>Test Verification Photos</SectionLabel>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        {photos.map((label) => (
-          <View key={label} style={{ width: '31%' }}>
-            <View
-              style={{
-                height: 88,
-                borderRadius: radius.sm,
-                backgroundColor: c.surfaceMuted,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: c.border,
-              }}>
-              <FlaskConical size={28} color={c.inkMuted} strokeWidth={1.8} />
-            </View>
-            <Text
-              style={{
-                fontFamily: 'Poppins-Regular',
-                fontSize: 10,
-                color: c.inkMuted,
-                textAlign: 'center',
-                marginTop: 6,
-              }}>
-              {label}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      <View
-        style={{
-          marginTop: 20,
-          borderRadius: radius.md,
-          padding: 16,
-          flexDirection: 'row',
-          alignItems: 'center',
-          borderWidth: 1,
-          borderColor: c.border,
-          backgroundColor: c.surfaceMuted,
-        }}>
-        <ClipboardCheck size={22} color={c.brand} strokeWidth={2} />
+        {/* Standard Testing Benchmarks */}
         <Text
           style={{
-            flex: 1,
-            marginLeft: 12,
-            fontFamily: 'Poppins-Regular',
-            fontSize: 13,
-            color: c.brand,
-            lineHeight: 20,
+            fontFamily: fonts.bold,
+            fontSize: 14,
+            color: appColors.textPrimary,
+            marginTop: 4,
           }}>
-          We test every batch for purity. You & your family are in safe hands.
+          Daily Quality Benchmarks
         </Text>
+
+        <View
+          style={{
+            backgroundColor: appColors.surface,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: appColors.border,
+            padding: 16,
+            ...shadow.soft,
+          }}>
+          {[
+            {
+              title: 'Zero Added Water',
+              desc: '100% undiluted whole cow and buffalo milk directly from vetted local farms.',
+            },
+            {
+              title: 'No Synthetic Adulterants',
+              desc: 'Strictly tested free of urea, starch, detergents, and synthetic neutralizers.',
+            },
+            {
+              title: 'Natural SNF & Fat Balance',
+              desc: 'Rich, natural dairy consistency preserved without artificial homogenizers.',
+            },
+            {
+              title: 'Chilled Chain Hygiene',
+              desc: 'Cooled immediately after morning milking and delivered fresh to your doorstep before 7:00 AM.',
+            },
+          ].map((item, idx, arr) => (
+            <View
+              key={item.title}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                paddingVertical: 10,
+                borderBottomWidth: idx === arr.length - 1 ? 0 : 1,
+                borderBottomColor: appColors.borderLight,
+              }}>
+              <View
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 13,
+                  backgroundColor: appColors.primaryLight,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 10,
+                  marginTop: 2,
+                }}>
+                <CheckCircle2 size={15} color={appColors.primary} strokeWidth={2.5} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.bold,
+                    fontSize: 13,
+                    color: appColors.textPrimary,
+                  }}>
+                  {item.title}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.regular,
+                    fontSize: 12,
+                    color: appColors.textMuted,
+                    marginTop: 2,
+                    lineHeight: 16,
+                  }}>
+                  {item.desc}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* Quality status telemetry note */}
+        <View
+          style={{
+            backgroundColor: swatches.bgMuted,
+            borderRadius: 14,
+            borderWidth: 1,
+            borderColor: appColors.border,
+            padding: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+          }}>
+          <FlaskConical size={20} color={appColors.primary} strokeWidth={2} style={{ marginRight: 10 }} />
+          <Text
+            style={{
+              fontFamily: fonts.regular,
+              fontSize: 12,
+              color: appColors.textSecondary,
+              flex: 1,
+              lineHeight: 17,
+            }}>
+            Batch-specific digital lab certificates will be accessible here as automated dairy telemetry integration goes live.
+          </Text>
+        </View>
       </View>
     </DetailScreen>
   );

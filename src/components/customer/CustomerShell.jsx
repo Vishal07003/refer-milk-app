@@ -2,18 +2,18 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import {
   House,
-  ReceiptText,
+  ShoppingBag,
+  Package,
   User,
-  UserRoundPlus,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { c } from '../../theme/customerTheme';
 
 const tabs = [
   { key: 'Dashboard', label: 'Home', Icon: House },
-  { key: 'Referrals', label: 'Refer', Icon: UserRoundPlus },
-  { key: 'Bills', label: 'Pay', Icon: ReceiptText },
-  { key: 'Profile', label: 'You', Icon: User },
+  { key: 'Products', label: 'Products', Icon: ShoppingBag },
+  { key: 'Orders', label: 'Orders', Icon: Package },
+  { key: 'Profile', label: 'Profile', Icon: User },
 ];
 
 export function BottomTabs({ activeTab, onTabPress }) {

@@ -4,63 +4,59 @@ import {
   Text,
   View,
   ActivityIndicator,
-  Modal,
-  TextInput,
+  ScrollView,
 } from 'react-native';
-import { ArrowUpRight, CreditCard, Receipt, Plus, X, Check } from 'lucide-react-native';
 import {
-  Chip,
-  DarkHero,
+  CreditCard,
+  Receipt,
+  AlertCircle,
+  RefreshCw,
+  Wallet,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Sparkles,
+  Calendar,
+  CheckCircle2,
+  Banknote,
+} from 'lucide-react-native';
+import {
+  DetailHeader,
+  DetailScreen,
   KeyValueRow,
-  ListRow,
   ListSection,
-  PrimaryBtn,
-  Screen,
-  ScreenHeader,
-  SectionLabel,
-  Surface,
 } from '../../../components/customer/ui';
-import { c, radius } from '../../../theme/customerTheme';
+import { appColors, radius, shadow, swatches } from '../../../theme/customerTheme';
+import { fonts } from '../../../theme/fonts';
+import { useRoute } from '@react-navigation/native';
 import {
   getPaymentHistory,
-  getMySubscriptions,
-  addMoneyToWallet,
-  createWalletOrder,
-  verifyWalletPayment,
+  getCustomerBills,
   getWallet,
-  createWalletTopup,
-  verifyWalletTopup,
   getWalletTransactions,
 } from '../../../services/subscriptionService';
 import { getProfile } from '../../../services/authService';
 import { useToast } from '../../../context/ToastContext';
 
-const PRESET_AMOUNTS = [100, 200, 500, 1000];
-const PAYMENT_METHODS = [
-  { id: 'upi', label: 'UPI / GPay / PhonePe' },
-  { id: 'card', label: 'Debit / Credit Card' },
-  { id: 'net_banking', label: 'Net Banking' },
-];
-
-export default function Bills({ initialTab = 'invoice' }) {
+export default function Bills({ initialTab: propInitialTab = 'invoice' }) {
+  const route = useRoute();
+  const initialTab = route.params?.initialTab || propInitialTab;
   const { showToast } = useToast();
   const [tab, setTab] = useState(initialTab);
   const [payments, setPayments] = useState([]);
-  const [subscription, setSubscription] = useState(null);
+  const [bills, setBills] = useState([]);
+  const [billingSummary, setBillingSummary] = useState(null);
   const [profile, setProfile] = useState(null);
   const [walletData, setWalletData] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Wallet Modal state
-  const [showWalletModal, setShowWalletModal] = useState(false);
-  const [rechargeAmount, setRechargeAmount] = useState('500');
-  const [selectedMethod, setSelectedMethod] = useState('upi');
-  const [recharging, setRecharging] = useState(false);
-  const [rechargeError, setRechargeError] = useState('');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    setTab(initialTab);
-  }, [initialTab]);
+    if (route.params?.initialTab) {
+      setTab(route.params.initialTab);
+    } else {
+      setTab(initialTab);
+    }
+  }, [route.params?.initialTab, initialTab]);
 
   useEffect(() => {
     fetchBillsData();
@@ -69,13 +65,22 @@ export default function Bills({ initialTab = 'invoice' }) {
   const fetchBillsData = async () => {
     try {
       setLoading(true);
-      const [payRes, subRes, profRes, walletRes, txRes] = await Promise.allSettled([
+      setError(null);
+      const [billRes, payRes, profRes, walletRes, txRes] = await Promise.allSettled([
+        getCustomerBills(),
         getPaymentHistory(),
-        getMySubscriptions(),
         getProfile(),
         getWallet(),
         getWalletTransactions(),
       ]);
+
+      if (billRes.status === 'fulfilled' && billRes.value) {
+        setBills(billRes.value.bills || []);
+        setBillingSummary(billRes.value.summary || null);
+      } else if (billRes.status === 'rejected') {
+        console.warn('Failed to load bills:', billRes.reason);
+        setError('Unable to calculate delivery bills right now.');
+      }
 
       if (payRes.status === 'fulfilled') {
         const list = Array.isArray(payRes.value)
@@ -83,19 +88,16 @@ export default function Bills({ initialTab = 'invoice' }) {
           : payRes.value?.payments || payRes.value?.results || [];
         setPayments(list);
       }
-      if (subRes.status === 'fulfilled') {
-        const subs = Array.isArray(subRes.value)
-          ? subRes.value
-          : subRes.value?.results || [];
-        setSubscription(subs[0] || null);
-      }
+
       if (profRes.status === 'fulfilled') {
         const prof = profRes.value?.profile || profRes.value;
         setProfile(prof);
       }
+
       if (walletRes.status === 'fulfilled') {
         setWalletData(walletRes.value);
       }
+
       if (txRes.status === 'fulfilled' && txRes.value?.transactions) {
         const txList = txRes.value.transactions.map((tx) => ({
           id: tx.id,
@@ -109,78 +111,34 @@ export default function Bills({ initialTab = 'invoice' }) {
       }
     } catch (err) {
       console.error('Error loading bills data:', err);
+      setError('Failed to load billing records. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleRechargeWallet = async () => {
-    const amt = parseFloat(rechargeAmount);
-    if (isNaN(amt) || amt <= 0) {
-      setRechargeError('Please enter a valid amount');
-      return;
-    }
-    setRecharging(true);
-    setRechargeError('');
-
-    try {
-      // Step 1: Create Razorpay Order server-side
-      const orderRes = await createWalletTopup({ amount: amt });
-      const orderId = orderRes?.order_id || `order_topup_${Date.now()}`;
-      const mockPaymentId = `pay_${Date.now()}`;
-      const mockSignature = `sig_${Date.now()}`;
-
-      // Step 2 & 3: Signature verification on backend
-      const verifyRes = await verifyWalletTopup({
-        razorpay_order_id: orderId,
-        razorpay_payment_id: mockPaymentId,
-        razorpay_signature: mockSignature,
-      });
-
-      if (verifyRes.balance) {
-        setWalletData({ balance: verifyRes.balance, currency: 'INR' });
-        setProfile((prev) => ({
-          ...prev,
-          wallet_balance: verifyRes.balance,
-        }));
-      }
-
-      showToast(`₹${amt} recharged to wallet via Razorpay!`, 'success');
-      setShowWalletModal(false);
-      fetchBillsData(); // refresh payments list
-    } catch (err) {
-      console.error('Error recharging wallet:', err?.response?.data || err.message);
-      const msg = err?.response?.data?.msg || err?.response?.data?.message || 'Failed to recharge wallet. Try again.';
-      setRechargeError(msg);
-    } finally {
-      setRecharging(false);
     }
   };
 
   const currentWalletBalance =
     walletData?.balance ?? profile?.wallet_balance ?? profile?.profile?.wallet_balance ?? '0.00';
 
-  const baseRate = Number(subscription?.price_per_litre || 70);
-  const quantity = Number(subscription?.quantity || 2);
-  const totalLiters = quantity * 30; // monthly approx
-  const subtotal = totalLiters * baseRate;
-  const discountPerLitre = Number(profile?.referrals_count || 0);
-  const discountAmount = totalLiters * discountPerLitre;
-  const netPayable = Math.max(0, subtotal - discountAmount);
+  const activeBill = bills[0] || null;
 
   return (
-    <Screen>
-      <ScreenHeader subtitle="Payments" title="Bills & Wallet" />
+    <DetailScreen>
+      <DetailHeader title="Bills & Wallet" />
 
+      {/* Segmented Tab Switcher */}
       <View
         style={{
           flexDirection: 'row',
-          backgroundColor: c.surfaceMuted,
+          backgroundColor: swatches.bgMuted,
           borderRadius: radius.pill,
           padding: 4,
-          marginBottom: 20,
+          marginBottom: 18,
         }}>
-        {['invoice', 'wallet'].map((key) => {
+        {[
+          { key: 'invoice', label: 'Subscription Bill', icon: Receipt },
+          { key: 'wallet', label: 'Wallet & Rewards', icon: Wallet },
+        ].map(({ key, label, icon: TabIcon }) => {
           const active = tab === key;
           return (
             <Pressable
@@ -190,16 +148,29 @@ export default function Bills({ initialTab = 'invoice' }) {
                 flex: 1,
                 paddingVertical: 10,
                 borderRadius: radius.pill,
-                backgroundColor: active ? c.surface : 'transparent',
+                backgroundColor: active ? appColors.surface : 'transparent',
                 alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: 6,
+                elevation: active ? 2 : 0,
+                shadowColor: '#000',
+                shadowOpacity: active ? 0.05 : 0,
+                shadowRadius: 4,
+                shadowOffset: { width: 0, height: 2 },
               }}>
+              <TabIcon
+                size={15}
+                color={active ? appColors.primary : appColors.textMuted}
+                strokeWidth={2.2}
+              />
               <Text
                 style={{
-                  fontFamily: active ? 'Poppins-SemiBold' : 'Poppins-Regular',
-                  fontSize: 13,
-                  color: active ? c.ink : c.inkMuted,
+                  fontFamily: active ? fonts.bold : fonts.medium,
+                  fontSize: 12.5,
+                  color: active ? appColors.primary : appColors.textMuted,
                 }}>
-                {key === 'invoice' ? 'Invoice' : 'Wallet'}
+                {label}
               </Text>
             </Pressable>
           );
@@ -208,354 +179,487 @@ export default function Bills({ initialTab = 'invoice' }) {
 
       {loading ? (
         <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={c.brand} />
-        </View>
-      ) : tab === 'invoice' ? (
-        <>
-          <View className="mb-4 flex-row items-center justify-between">
-            <View className="flex-row items-center">
-              <Receipt size={20} color={c.brand} strokeWidth={2} />
-              <Text
-                style={{
-                  fontFamily: 'Poppins-SemiBold',
-                  fontSize: 15,
-                  color: c.ink,
-                  marginLeft: 8,
-                }}>
-                {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
-              </Text>
-            </View>
-            <Chip label="Current Billing Period" tone="brand" />
-          </View>
-
-          <ListSection>
-            {[
-              ['Milk type', subscription?.product_name || 'Standard Cow Milk'],
-              ['Monthly estimate', `${totalLiters.toFixed(1)} L`],
-              ['Base rate', `₹${baseRate}/L`],
-              ['Subtotal', `₹${subtotal.toLocaleString('en-IN')}`],
-            ].map(([label, val], index, rows) => (
-              <KeyValueRow key={label} label={label} value={val} last={index === rows.length - 1} />
-            ))}
-          </ListSection>
-
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderBottomWidth: 1,
-              borderBottomColor: c.border,
-              paddingVertical: 14,
-              paddingHorizontal: 16,
-              marginTop: 12,
-            }}>
-            <Text style={{ fontFamily: 'Poppins-Medium', fontSize: 13, color: c.brand }}>
-              Referral discount (-₹{discountPerLitre}/L)
-            </Text>
-            <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 14, color: c.brand }}>
-              -₹{discountAmount.toLocaleString('en-IN')}
-            </Text>
-          </View>
-
-          <View className="mt-5 flex-row items-end justify-between">
-            <View>
-              <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: c.inkMuted }}>
-                Amount payable
-              </Text>
-              <Text
-                style={{
-                  fontFamily: 'Poppins-Bold',
-                  fontSize: 32,
-                  color: c.ink,
-                  letterSpacing: -1,
-                  marginTop: 2,
-                }}>
-                ₹{netPayable.toLocaleString('en-IN')}
-              </Text>
-            </View>
-            <PrimaryBtn
-              label="Pay now"
-              iconRight={ArrowUpRight}
-              fullWidth={false}
-              style={{ alignSelf: 'flex-end' }}
-            />
-          </View>
-        </>
-      ) : (
-        <DarkHero style={{ marginBottom: 20 }}>
-          <View className="flex-row items-center">
-            <CreditCard size={22} color="rgba(255,255,255,0.7)" strokeWidth={2} />
-            <Text
-              style={{
-                fontFamily: 'Poppins-Medium',
-                fontSize: 14,
-                color: 'rgba(255,255,255,0.7)',
-                marginLeft: 8,
-              }}>
-              Dairy wallet
-            </Text>
-          </View>
+          <ActivityIndicator size="large" color={appColors.primary} />
           <Text
             style={{
-              fontFamily: 'Poppins-Bold',
-              fontSize: 42,
-              color: '#FFFFFF',
-              letterSpacing: -1,
+              fontFamily: fonts.medium,
+              fontSize: 13,
+              color: appColors.textMuted,
               marginTop: 12,
             }}>
-            ₹{currentWalletBalance}
-          </Text>
-          <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 13, color: c.mint, marginTop: 4 }}>
-            Available balance
-          </Text>
-          <Pressable
-            onPress={() => setShowWalletModal(true)}
-            style={{ borderRadius: 14, backgroundColor: c.brand, marginTop: 20 }}
-            className="py-3 rounded-2xl flex-row items-center justify-center px-4">
-            <Plus size={18} color="#FFFFFF" strokeWidth={2.5} style={{ marginRight: 6 }} />
-            <Text className="text-white font-semibold text-base">Add Money to Wallet</Text>
-          </Pressable>
-        </DarkHero>
-      )}
-
-      <SectionLabel>Recent Payments & Activity</SectionLabel>
-      {payments.length === 0 ? (
-        <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-          <Text style={{ fontFamily: 'Poppins-Regular', color: c.inkMuted }}>
-            No payment history found.
+            Loading records...
           </Text>
         </View>
-      ) : (
-        <ListSection>
-          {payments.slice(0, 5).map((tx, i, arr) => {
-            const isCompleted = tx.payment_status === 'completed' || tx.status === 'completed' || tx.status === 'Paid';
-            const formattedDate = tx.created_at
-              ? new Date(tx.created_at).toLocaleDateString('en-IN', {
-                  day: 'numeric',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              : 'Recent';
-
-            return (
-              <ListRow
-                key={tx.id || i}
-                title={tx.transaction_id ? `Txn #${tx.transaction_id}` : tx.notes || 'Payment'}
-                subtitle={formattedDate}
-                last={i === arr.length - 1}
-                leading={
-                  <View
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      backgroundColor: isCompleted ? c.mintSoft : c.surfaceMuted,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginRight: 12,
-                    }}>
-                    <Text style={{ fontSize: 16 }}>{isCompleted ? '↓' : '↑'}</Text>
-                  </View>
-                }
-                right={
-                  <Text
-                    style={{
-                      fontFamily: 'Poppins-SemiBold',
-                      fontSize: 14,
-                      color: isCompleted ? c.brand : c.ink,
-                    }}>
-                    +₹{tx.amount}
-                  </Text>
-                }
-              />
-            );
-          })}
-        </ListSection>
-      )}
-
-      {/* Add to Wallet Modal */}
-      <Modal
-        visible={showWalletModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowWalletModal(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+      ) : error ? (
+        <View
+          style={{
+            padding: 24,
+            alignItems: 'center',
+            backgroundColor: appColors.surface,
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: appColors.border,
+            marginVertical: 12,
+            ...shadow.soft,
+          }}>
+          <AlertCircle size={32} color={appColors.danger} style={{ marginBottom: 8 }} />
+          <Text
+            style={{
+              fontFamily: fonts.medium,
+              color: appColors.textPrimary,
+              fontSize: 13.5,
+              textAlign: 'center',
+            }}>
+            {error}
+          </Text>
+          <Pressable
+            onPress={fetchBillsData}
+            android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: appColors.primary,
+              paddingHorizontal: 18,
+              paddingVertical: 9,
+              borderRadius: radius.pill,
+              marginTop: 14,
+            }}>
+            <RefreshCw size={14} color="#FFF" style={{ marginRight: 6 }} />
+            <Text style={{ fontFamily: fonts.bold, color: '#FFF', fontSize: 13 }}>
+              Try Again
+            </Text>
+          </Pressable>
+        </View>
+      ) : tab === 'invoice' ? (
+        !activeBill ? (
           <View
             style={{
-              backgroundColor: '#FFFFFF',
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              padding: 24,
+              padding: 32,
+              alignItems: 'center',
+              backgroundColor: appColors.surface,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: appColors.border,
+              marginVertical: 10,
+              ...shadow.soft,
             }}>
-            {/* Header */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <View>
-                <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 18, color: c.ink }}>
-                  Add Money to Wallet
-                </Text>
-                <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: c.inkMuted }}>
-                  Current Balance: ₹{currentWalletBalance}
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => setShowWalletModal(false)}
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 18,
-                  backgroundColor: c.surfaceMuted,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                <X size={18} color={c.ink} />
-              </Pressable>
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                backgroundColor: swatches.bgMuted,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 12,
+              }}>
+              <Receipt size={28} color={appColors.textMuted} strokeWidth={2} />
             </View>
-
-            {/* Input Amount */}
-            <Text style={{ fontFamily: 'Poppins-Medium', fontSize: 13, color: c.ink, marginBottom: 8 }}>
-              Enter Amount (₹)
+            <Text
+              style={{
+                fontFamily: fonts.bold,
+                color: appColors.textPrimary,
+                fontSize: 16,
+              }}>
+              No Active Subscription Bill
             </Text>
+            <Text
+              style={{
+                fontFamily: fonts.regular,
+                color: appColors.textMuted,
+                fontSize: 12.5,
+                textAlign: 'center',
+                marginTop: 4,
+                lineHeight: 18,
+                maxWidth: 260,
+              }}>
+              Bills are generated automatically based on fulfilled daily milk deliveries.
+            </Text>
+          </View>
+        ) : (
+          <View style={{ gap: 14 }}>
+            {/* Header info */}
             <View
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                borderWidth: 1.5,
-                borderColor: c.brand,
-                borderRadius: 14,
-                paddingHorizontal: 16,
-                backgroundColor: '#F9FAFB',
-                marginBottom: 14,
+                justifyContent: 'space-between',
               }}>
-              <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 20, color: c.brand, marginRight: 8 }}>
-                ₹
-              </Text>
-              <TextInput
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Receipt size={18} color={appColors.primary} strokeWidth={2.2} />
+                <Text
+                  style={{
+                    fontFamily: fonts.bold,
+                    fontSize: 15,
+                    color: appColors.textPrimary,
+                    marginLeft: 8,
+                  }}>
+                  {activeBill.product_name}
+                </Text>
+              </View>
+              <View
                 style={{
-                  flex: 1,
-                  fontFamily: 'Poppins-Bold',
-                  fontSize: 22,
-                  color: c.ink,
-                  paddingVertical: 12,
-                }}
-                keyboardType="numeric"
-                value={rechargeAmount}
-                onChangeText={(val) => {
-                  setRechargeError('');
-                  setRechargeAmount(val);
-                }}
-                placeholder="500"
-              />
+                  backgroundColor: appColors.primaryLight,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: radius.pill,
+                }}>
+                <Text
+                  style={{
+                    fontFamily: fonts.semiBold,
+                    fontSize: 11,
+                    color: appColors.primary,
+                  }}>
+                  Sub #{activeBill.subscription_id}
+                </Text>
+              </View>
             </View>
 
-            {/* Quick Presets */}
-            <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: c.inkMuted, marginBottom: 8 }}>
-              Or choose quick amount
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-              {PRESET_AMOUNTS.map((amt) => {
-                const selected = rechargeAmount === String(amt);
-                return (
-                  <Pressable
-                    key={amt}
-                    onPress={() => {
-                      setRechargeError('');
-                      setRechargeAmount(String(amt));
-                    }}
+            {/* Breakdown card */}
+            <View
+              style={{
+                backgroundColor: appColors.surface,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: appColors.border,
+                padding: 16,
+                ...shadow.soft,
+              }}>
+              <Text
+                style={{
+                  fontFamily: fonts.bold,
+                  fontSize: 13,
+                  color: appColors.textMuted,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  marginBottom: 12,
+                }}>
+                Delivery Breakdown
+              </Text>
+
+              {[
+                ['Billing Period', `${activeBill.start_date} to ${activeBill.end_date}`],
+                [
+                  'Delivered Drops',
+                  `${activeBill.delivered_drops_count} drops (${activeBill.delivered_volume} ${activeBill.unit})`,
+                ],
+                ['Missed / Failed Drops', `${activeBill.failed_drops_count} drops`],
+                ['Pending Upcoming', `${activeBill.pending_future_drops_count} drops`],
+                ['Base Rate', `₹${activeBill.rate_per_unit}/${activeBill.unit}`],
+                ['Referral Discount', `-₹${activeBill.discount_per_unit}/${activeBill.unit}`],
+                ['Effective Rate', `₹${activeBill.final_rate_per_unit}/${activeBill.unit}`],
+                [
+                  'Delivered Subtotal',
+                  `₹${Number(activeBill.delivered_subtotal).toLocaleString('en-IN')}`,
+                ],
+              ].map(([label, val], idx, arr) => (
+                <View
+                  key={label}
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    paddingVertical: 9,
+                    borderBottomWidth: idx === arr.length - 1 ? 0 : 1,
+                    borderBottomColor: appColors.borderLight,
+                  }}>
+                  <Text
                     style={{
-                      flex: 1,
-                      paddingVertical: 8,
-                      borderRadius: radius.md,
-                      backgroundColor: selected ? c.mintSoft : c.surfaceMuted,
-                      borderWidth: selected ? 1.5 : 1,
-                      borderColor: selected ? c.brand : c.border,
-                      alignItems: 'center',
+                      fontFamily: fonts.regular,
+                      fontSize: 13,
+                      color: appColors.textSecondary,
                     }}>
-                    <Text
-                      style={{
-                        fontFamily: selected ? 'Poppins-Bold' : 'Poppins-Medium',
-                        fontSize: 13,
-                        color: selected ? c.brand : c.ink,
-                      }}>
-                      +₹{amt}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                    {label}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: fonts.medium,
+                      fontSize: 13,
+                      color: appColors.textPrimary,
+                    }}>
+                    {val}
+                  </Text>
+                </View>
+              ))}
+
+              {/* Referral Savings banner */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: appColors.primaryLight,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  marginTop: 10,
+                }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Sparkles size={14} color={appColors.primary} strokeWidth={2.2} style={{ marginRight: 6 }} />
+                  <Text style={{ fontFamily: fonts.semiBold, fontSize: 12.5, color: appColors.primary }}>
+                    Total Referral Savings
+                  </Text>
+                </View>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: appColors.primary }}>
+                  -₹{Number(activeBill.discount_total || 0).toLocaleString('en-IN')}
+                </Text>
+              </View>
             </View>
 
-            {/* Payment Method Selection */}
-            <Text style={{ fontFamily: 'Poppins-Medium', fontSize: 13, color: c.ink, marginBottom: 8 }}>
-              Select Payment Method
+            {/* Total Payable & Cash instruction */}
+            <View
+              style={{
+                backgroundColor: appColors.surface,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: appColors.border,
+                padding: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                ...shadow.soft,
+              }}>
+              <View>
+                <Text
+                  style={{
+                    fontFamily: fonts.regular,
+                    fontSize: 11.5,
+                    color: appColors.textMuted,
+                  }}>
+                  Amount Payable
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: fonts.bold,
+                    fontSize: 26,
+                    color: appColors.textPrimary,
+                    letterSpacing: -0.5,
+                    marginTop: 2,
+                  }}>
+                  ₹{Number(activeBill.amount_payable || 0).toLocaleString('en-IN')}
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  backgroundColor: appColors.primaryLight,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 12,
+                  alignItems: 'flex-end',
+                }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Banknote size={14} color={appColors.primary} strokeWidth={2.2} style={{ marginRight: 4 }} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: appColors.primary }}>
+                    Cash at Doorstep
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    fontFamily: fonts.regular,
+                    fontSize: 10.5,
+                    color: appColors.textSecondary,
+                    marginTop: 2,
+                  }}>
+                  Settled with Delivery Partner
+                </Text>
+              </View>
+            </View>
+          </View>
+        )
+      ) : (
+        /* Wallet Tab */
+        <View style={{ gap: 14 }}>
+          {/* Hero Wallet Card */}
+          <View
+            style={{
+              backgroundColor: appColors.primary,
+              borderRadius: 20,
+              padding: 22,
+              ...shadow.soft,
+            }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Wallet size={18} color="rgba(255,255,255,0.85)" strokeWidth={2.2} />
+                <Text
+                  style={{
+                    fontFamily: fonts.medium,
+                    fontSize: 13,
+                    color: 'rgba(255,255,255,0.85)',
+                    marginLeft: 8,
+                  }}>
+                  Refer Milk Wallet
+                </Text>
+              </View>
+              <View
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.18)',
+                  paddingHorizontal: 10,
+                  paddingVertical: 3,
+                  borderRadius: radius.pill,
+                }}>
+                <Text style={{ fontFamily: fonts.semiBold, fontSize: 11, color: '#FFFFFF' }}>
+                  Cash Ledger
+                </Text>
+              </View>
+            </View>
+
+            <Text
+              style={{
+                fontFamily: fonts.bold,
+                fontSize: 36,
+                color: '#FFFFFF',
+                letterSpacing: -0.5,
+                marginTop: 14,
+              }}>
+              ₹{Number(currentWalletBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </Text>
-            <View style={{ gap: 8, marginBottom: 20 }}>
-              {PAYMENT_METHODS.map((m) => {
-                const active = selectedMethod === m.id;
+            <Text
+              style={{
+                fontFamily: fonts.regular,
+                fontSize: 12,
+                color: swatches.emerald200,
+                marginTop: 2,
+              }}>
+              Available Balance & Referral Rewards
+            </Text>
+
+            <View
+              style={{
+                borderRadius: 12,
+                backgroundColor: 'rgba(255,255,255,0.12)',
+                marginTop: 16,
+                padding: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}>
+              <Banknote size={16} color="#FFFFFF" strokeWidth={2.2} style={{ marginRight: 8 }} />
+              <Text
+                style={{
+                  fontFamily: fonts.regular,
+                  color: '#FFFFFF',
+                  fontSize: 11.5,
+                  flex: 1,
+                  lineHeight: 16,
+                }}>
+                Prepay or settle balances directly with your delivery partner during daily morning deliveries.
+              </Text>
+            </View>
+          </View>
+
+          {/* Wallet / Referral Activity */}
+          <Text
+            style={{
+              fontFamily: fonts.bold,
+              fontSize: 14,
+              color: appColors.textPrimary,
+              marginTop: 6,
+            }}>
+            Recent Ledger Activity
+          </Text>
+
+          {payments.length === 0 ? (
+            <View
+              style={{
+                backgroundColor: appColors.surface,
+                borderRadius: 14,
+                padding: 24,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: appColors.border,
+              }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: appColors.textMuted }}>
+                No ledger transactions found yet.
+              </Text>
+            </View>
+          ) : (
+            <View
+              style={{
+                backgroundColor: appColors.surface,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: appColors.border,
+                paddingHorizontal: 16,
+                ...shadow.soft,
+              }}>
+              {payments.slice(0, 5).map((tx, idx, arr) => {
+                const isCompleted =
+                  tx.payment_status === 'completed' ||
+                  tx.status === 'completed' ||
+                  tx.status === 'Paid';
+                const formattedDate = tx.created_at
+                  ? new Date(tx.created_at).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : 'Recent';
+
                 return (
-                  <Pressable
-                    key={m.id}
-                    onPress={() => setSelectedMethod(m.id)}
+                  <View
+                    key={tx.id || idx}
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: 12,
-                      borderRadius: radius.md,
-                      borderWidth: active ? 1.5 : 1,
-                      borderColor: active ? c.brand : c.border,
-                      backgroundColor: active ? c.mintSoft : '#FFFFFF',
+                      paddingVertical: 13,
+                      borderBottomWidth: idx === arr.length - 1 ? 0 : 1,
+                      borderBottomColor: appColors.borderLight,
                     }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: isCompleted ? appColors.primaryLight : swatches.bgMuted,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: 10,
+                        }}>
+                        {isCompleted ? (
+                          <ArrowDownLeft size={16} color={appColors.primary} strokeWidth={2.2} />
+                        ) : (
+                          <ArrowUpRight size={16} color={appColors.textMuted} strokeWidth={2.2} />
+                        )}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          numberOfLines={1}
+                          style={{
+                            fontFamily: fonts.semiBold,
+                            fontSize: 13,
+                            color: appColors.textPrimary,
+                          }}>
+                          {tx.transaction_id ? `Txn #${tx.transaction_id}` : tx.notes || 'Payment'}
+                        </Text>
+                        <Text
+                          style={{
+                            fontFamily: fonts.regular,
+                            fontSize: 11.5,
+                            color: appColors.textMuted,
+                            marginTop: 1,
+                          }}>
+                          {formattedDate}
+                        </Text>
+                      </View>
+                    </View>
+
                     <Text
                       style={{
-                        fontFamily: active ? 'Poppins-SemiBold' : 'Poppins-Regular',
-                        fontSize: 13,
-                        color: active ? c.brand : c.ink,
+                        fontFamily: fonts.bold,
+                        fontSize: 14,
+                        color: isCompleted ? appColors.primary : appColors.textPrimary,
                       }}>
-                      {m.label}
+                      +₹{Number(tx.amount || 0).toLocaleString('en-IN')}
                     </Text>
-                    {active && <Check size={16} color={c.brand} strokeWidth={3} />}
-                  </Pressable>
+                  </View>
                 );
               })}
             </View>
-
-            {rechargeError ? (
-              <Text
-                style={{
-                  fontFamily: 'Poppins-Regular',
-                  fontSize: 12,
-                  color: 'red',
-                  textAlign: 'center',
-                  marginBottom: 12,
-                }}>
-                {rechargeError}
-              </Text>
-            ) : null}
-
-            {/* Action Button */}
-            <Pressable
-              onPress={handleRechargeWallet}
-              disabled={recharging}
-              style={{
-                borderRadius: 14,
-                backgroundColor: c.brand,
-                paddingVertical: 14,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: recharging ? 0.7 : 1,
-              }}>
-              {recharging ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 15, color: '#FFFFFF' }}>
-                  Proceed to Recharge ₹{rechargeAmount || '0'}
-                </Text>
-              )}
-            </Pressable>
-          </View>
+          )}
         </View>
-      </Modal>
-    </Screen>
+      )}
+    </DetailScreen>
   );
 }

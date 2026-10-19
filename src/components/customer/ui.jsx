@@ -1,9 +1,14 @@
 import React from 'react';
 import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
-import { ChevronRight, MoveLeft, LogOut } from 'lucide-react-native';
+import { ChevronRight, LogOut } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { c, radius } from '../../theme/customerTheme';
+import { c, radius, shadow } from '../../theme/customerTheme';
+import CustomerBackButton from './CustomerBackButton';
+
+import AppKeyboardAwareScrollView from '../AppKeyboardAwareScrollView';
+
+export { CustomerBackButton };
 
 export function DetailScreen({ children }) {
   const insets = useSafeAreaInsets();
@@ -11,15 +16,14 @@ export function DetailScreen({ children }) {
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: c.bg }} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={c.bg} />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
+      <AppKeyboardAwareScrollView
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 8,
           paddingBottom: Math.max(insets.bottom + 32, 40),
         }}>
         {children}
-      </ScrollView>
+      </AppKeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
@@ -35,39 +39,32 @@ export function DetailHeader({ title, onBack, right }) {
         justifyContent: 'space-between',
         marginBottom: 20,
       }}>
-      <Pressable
-        onPress={onBack ?? (() => navigation.goBack())}
-        hitSlop={8}
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 12,
-          backgroundColor: c.surface,
-          borderWidth: 1,
-          borderColor: c.border,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        <MoveLeft size={20} color={c.ink} strokeWidth={2} />
-      </Pressable>
+      <CustomerBackButton
+        onPress={onBack}
+        size={52}
+        iconSize={22}
+      />
       <Text
+        numberOfLines={1}
         style={{
           flex: 1,
           fontFamily: 'Poppins-Bold',
-          fontSize: 17,
-          color: c.ink,
+          fontSize: 18,
+          color: '#0F172A',
           textAlign: 'center',
           letterSpacing: -0.3,
           paddingHorizontal: 8,
         }}>
         {title}
       </Text>
-      <View style={{ minWidth: 40, alignItems: 'flex-end' }}>{right ?? null}</View>
+      <View style={{ minWidth: 52, alignItems: 'flex-end', justifyContent: 'center' }}>
+        {right ?? null}
+      </View>
     </View>
   );
 }
 
-export function Screen({ children, noPad = false }) {
+export function Screen({ children, noPad = false, refreshControl }) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -75,6 +72,7 @@ export function Screen({ children, noPad = false }) {
       <StatusBar barStyle="dark-content" backgroundColor={c.bg} />
       <ScrollView
         showsVerticalScrollIndicator={false}
+        refreshControl={refreshControl}
         contentContainerStyle={{
           paddingHorizontal: noPad ? 0 : 20,
           paddingTop: 8,
@@ -123,7 +121,7 @@ export function ScreenHeader({ title, subtitle, right }) {
   );
 }
 
-export function Surface({ children, style, className = '', padded = true, flat = false }) {
+export function Surface({ children, style, className = '', padded = true, flat = false, elevated = false }) {
   return (
     <View
       className={className}
@@ -137,6 +135,7 @@ export function Surface({ children, style, className = '', padded = true, flat =
           width: '100%',
           borderWidth: flat ? 0 : 1,
           borderColor: c.border,
+          ...(elevated ? shadow.soft : {}),
         },
         style,
       ]}>
@@ -586,5 +585,86 @@ export function Avatar({ initials, size = 44, ring }) {
         {initials}
       </Text>
     </View>
+  );
+}
+
+export function StatusBadge({ status, style }) {
+  const normalized = (status || 'pending').toLowerCase().replace(/\s+/g, '_');
+  let tone = 'brand';
+  if (['delivered', 'paid', 'collected', 'completed', 'active', 'online'].includes(normalized)) {
+    tone = 'live';
+  } else if (['pending', 'processing', 'out_for_delivery', 'confirmed', 'assigned'].includes(normalized)) {
+    tone = 'warn';
+  } else if (['failed', 'cancelled', 'rejected', 'offline'].includes(normalized)) {
+    tone = 'danger';
+  }
+
+  const label = (status || 'Pending').replace(/_/g, ' ').toUpperCase();
+  return <Chip label={label} tone={tone} style={style} />;
+}
+
+export function EmptyStateView({ icon: Icon, title, message, actionLabel, onAction }) {
+  return (
+    <Surface padded elevated style={{ alignItems: 'center', paddingVertical: 36, marginVertical: 12 }}>
+      {Icon ? (
+        <View
+          style={{
+            width: 60,
+            height: 60,
+            borderRadius: 30,
+            backgroundColor: c.mintSoft,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 14,
+          }}>
+          <Icon size={28} color={c.brand} strokeWidth={2} />
+        </View>
+      ) : null}
+      <Text
+        style={{
+          fontFamily: 'Poppins-Bold',
+          fontSize: 16,
+          color: c.ink,
+          textAlign: 'center',
+          letterSpacing: -0.3,
+        }}>
+        {title}
+      </Text>
+      {message ? (
+        <Text
+          style={{
+            fontFamily: 'Poppins-Regular',
+            fontSize: 13,
+            color: c.inkMuted,
+            textAlign: 'center',
+            marginTop: 6,
+            paddingHorizontal: 16,
+            lineHeight: 19,
+          }}>
+          {message}
+        </Text>
+      ) : null}
+      {actionLabel && onAction ? (
+        <View style={{ marginTop: 18, width: '100%', maxWidth: 220 }}>
+          <PrimaryBtn label={actionLabel} onPress={onAction} size="sm" />
+        </View>
+      ) : null}
+    </Surface>
+  );
+}
+
+export function SkeletonBox({ width = '100%', height = 20, style, radius: r = radius.md }) {
+  return (
+    <View
+      style={[
+        {
+          width,
+          height,
+          borderRadius: r,
+          backgroundColor: c.surfaceMuted,
+        },
+        style,
+      ]}
+    />
   );
 }
