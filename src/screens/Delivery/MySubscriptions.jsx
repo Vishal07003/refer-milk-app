@@ -3,10 +3,12 @@ import {
   View,
   Text,
   Pressable,
+  TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { Milk, MapPin, CheckCircle2, ChevronRight } from 'lucide-react-native';
+import { Milk, MapPin, CheckCircle2, ChevronRight, ArrowRight, AlertCircle } from 'lucide-react-native';
 import {
   Chip,
   PrimaryBtn,
@@ -20,6 +22,7 @@ import {
   getMySubscriptionDeliveries,
   updateDailyDeliveryStatus,
 } from '../../services/deliveryService';
+import { formatAddress } from '../../utils/address';
 
 export default function MySubscriptions() {
   const navigation = useNavigation();
@@ -27,25 +30,34 @@ export default function MySubscriptions() {
 
   const [deliveries, setDeliveries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
   const [shiftFilter, setShiftFilter] = useState('All');
   const [updatingId, setUpdatingId] = useState(null);
 
-  const fetchDeliveries = async () => {
+  const fetchDeliveries = async (isPull = false) => {
     try {
-      setLoading(true);
+      if (isPull) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setFetchError(null);
       const data = await getMySubscriptionDeliveries();
       const list = Array.isArray(data) ? data : data?.deliveries || data?.results || [];
       setDeliveries(list);
     } catch (err) {
       console.error('Error fetching subscription deliveries:', err);
+      setFetchError('Unable to load subscription routes. Tap retry.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
-      fetchDeliveries();
+      fetchDeliveries(false);
     }, [])
   );
 
@@ -73,24 +85,71 @@ export default function MySubscriptions() {
     return 'warn';
   };
 
-  const formatAddress = (addr) => {
-    if (!addr) return 'Sangola Route Address';
-    if (typeof addr === 'string') return addr;
-    const parts = [
-      addr.house_number,
-      addr.street,
-      addr.area,
-      addr.city,
-    ].filter(Boolean);
-    return parts.join(', ');
-  };
+  // Shift filter normalization: inspect delivery_slot, slot_name, or time values safely
+  const filteredDeliveries = deliveries.filter((item) => {
+    if (shiftFilter === 'All') return true;
+    const rawSlot = String(item.delivery_slot || item.slot_name || item.time_slot || item.slot || '').toLowerCase();
+    if (shiftFilter === 'Morning') {
+      return (
+        rawSlot.includes('morn') ||
+        rawSlot.includes('am') ||
+        rawSlot.includes('06') ||
+        rawSlot.includes('07') ||
+        rawSlot.includes('08') ||
+        rawSlot === '' // Default fallback to morning route
+      );
+    }
+    if (shiftFilter === 'Evening') {
+      return (
+        rawSlot.includes('even') ||
+        rawSlot.includes('pm') ||
+        rawSlot.includes('17') ||
+        rawSlot.includes('18') ||
+        rawSlot.includes('19') ||
+        rawSlot.includes('20')
+      );
+    }
+    return true;
+  });
 
   return (
-    <Screen>
+    <Screen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => fetchDeliveries(true)}
+          colors={[c.brand]}
+          tintColor={c.brand}
+        />
+      }>
       <ScreenHeader
         title="Daily Milk Route"
         subtitle="Recurring customer milk subscription drops"
       />
+
+      {/* Network Error Retry Banner */}
+      {fetchError ? (
+        <Surface padded style={{ marginBottom: 16, backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 8 }}>
+              <AlertCircle size={18} color="#DC2626" style={{ marginRight: 8 }} />
+              <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: '#991B1B', flex: 1 }}>
+                {fetchError}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => fetchDeliveries(false)}
+              style={{
+                backgroundColor: '#DC2626',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: radius.md,
+              }}>
+              <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 11, color: '#FFFFFF' }}>Retry</Text>
+            </Pressable>
+          </View>
+        </Surface>
+      ) : null}
 
       {/* Shift Filter Pills */}
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
@@ -124,19 +183,21 @@ export default function MySubscriptions() {
         <View style={{ paddingVertical: 40, alignItems: 'center' }}>
           <ActivityIndicator size="large" color={c.brand} />
         </View>
-      ) : deliveries.length === 0 ? (
+      ) : filteredDeliveries.length === 0 ? (
         <Surface padded style={{ alignItems: 'center', paddingVertical: 36, marginTop: 10 }}>
           <Milk size={44} color={c.inkMuted} strokeWidth={1.5} />
           <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 16, color: c.ink, marginTop: 12 }}>
-            No subscriptions today
+            No subscriptions found
           </Text>
           <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 13, color: c.inkMuted, textAlign: 'center', marginTop: 4 }}>
-            All daily milk routes are clear or completed.
+            {shiftFilter === 'All'
+              ? 'All daily milk routes are clear or completed.'
+              : `No active deliveries for ${shiftFilter} shift.`}
           </Text>
         </Surface>
       ) : (
         <View style={{ gap: 12 }}>
-          {deliveries.map((item) => {
+          {filteredDeliveries.map((item) => {
             const isDelivered = item.status === 'delivered' || item.status === 'completed';
             const isUpdating = updatingId === item.id;
             const customerName = item.customer?.name || item.customer_name || item.user_name || `Customer #${item.id}`;
@@ -169,7 +230,19 @@ export default function MySubscriptions() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <Milk size={16} color={c.brand} strokeWidth={2} />
                   <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 13, color: c.brand, marginLeft: 6 }}>
-                    {item.quantity || '1.0'} L • {item.product_name || 'Standard Cow Milk'}
+                    {(() => {
+                      const qty = parseFloat(item.quantity || 1);
+                      const fmtQty = Number.isInteger(qty) ? String(qty) : qty.toFixed(1);
+                      const unit = (item.product_unit || item.plan_unit || '').toLowerCase();
+                      const pName = (item.product_name || '').toLowerCase();
+                      let unitStr = 'L';
+                      if (pName.includes('500ml') || pName.includes('500 ml')) unitStr = qty > 1 ? 'Units (500ml)' : 'Unit (500ml)';
+                      else if (unit === 'ml' || unit.includes('milli')) unitStr = 'ml';
+                      else if (unit === 'kg' || unit.includes('kilo')) unitStr = 'kg';
+                      else if (unit === 'g' || unit.includes('gram')) unitStr = 'g';
+                      else if (unit === 'piece' || unit.includes('pack')) unitStr = qty > 1 ? 'Packs' : 'Pack';
+                      return `${fmtQty} ${unitStr} • ${item.product_name || 'Standard Cow Milk'}`;
+                    })()}
                   </Text>
                 </View>
 
@@ -200,30 +273,63 @@ export default function MySubscriptions() {
                     borderTopWidth: 1,
                     borderTopColor: c.border,
                   }}>
-                  <Pressable
+                  <TouchableOpacity
                     onPress={() => navigation.navigate('DeliveryDetails', { delivery: item })}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="View Drop Details"
                     style={{
+                      backgroundColor: '#FFFFFF',
+                      height: 40,
+                      paddingHorizontal: 16,
+                      borderRadius: 10,
+                      borderWidth: 1.2,
+                      borderColor: '#CBD5E1',
                       flexDirection: 'row',
                       alignItems: 'center',
-                      backgroundColor: c.surfaceMuted,
-                      paddingHorizontal: 12,
-                      paddingVertical: 8,
-                      borderRadius: radius.md,
+                      justifyContent: 'center',
                     }}>
-                    <Text style={{ fontFamily: 'Poppins-SemiBold', fontSize: 12, color: c.ink, marginRight: 2 }}>
-                      View Drop Details
+                    <Text
+                      style={{
+                        color: '#0F172A',
+                        fontSize: 13,
+                        fontFamily: 'Poppins-Bold',
+                        includeFontPadding: false,
+                        marginRight: 6,
+                      }}>
+                      View Details
                     </Text>
-                    <ChevronRight size={15} color={c.ink} />
-                  </Pressable>
+                    <ChevronRight size={16} color="#0F172A" strokeWidth={2.2} />
+                  </TouchableOpacity>
 
-                  {!isDelivered && (
-                    <PrimaryBtn
-                      label="Mark Delivered"
-                      size="sm"
-                      icon={CheckCircle2}
-                      disabled={isUpdating}
-                      onPress={() => handleMarkDelivered(item)}
-                    />
+                  {!isDelivered && item.status !== 'failed' && (
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('DeliveryDetails', { delivery: item })}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Start Delivery Action"
+                      style={{
+                        backgroundColor: '#166534',
+                        height: 40,
+                        paddingHorizontal: 16,
+                        borderRadius: 10,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginLeft: 10,
+                      }}>
+                      <Text
+                        style={{
+                          color: '#FFFFFF',
+                          fontSize: 13,
+                          fontFamily: 'Poppins-Bold',
+                          includeFontPadding: false,
+                          marginRight: 6,
+                        }}>
+                        {item.status === 'out_for_delivery' ? 'Delivered' : 'Start Delivery'}
+                      </Text>
+                      <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.2} />
+                    </TouchableOpacity>
                   )}
                 </View>
               </Surface>

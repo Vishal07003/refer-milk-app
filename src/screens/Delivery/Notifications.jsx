@@ -4,6 +4,7 @@ import {
   Text,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
@@ -12,18 +13,21 @@ import {
   Package,
   CheckCheck,
   AlertCircle,
+  Trash2,
 } from 'lucide-react-native';
 import {
   DetailHeader,
   DetailScreen,
   Surface,
 } from '../../components/customer/ui';
+import AppThemedDialog from '../../components/AppThemedDialog';
 import { c, radius } from '../../theme/customerTheme';
 import { useToast } from '../../context/ToastContext';
 import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  clearAllNotifications,
 } from '../../services/authService';
 
 export default function DeliveryNotifications() {
@@ -34,6 +38,8 @@ export default function DeliveryNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [markingAll, setMarkingAll] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const fetchNotifications = async () => {
     try {
@@ -86,6 +92,29 @@ export default function DeliveryNotifications() {
     }
   };
 
+  const handleClearAll = () => {
+    if (notifications.length === 0 || clearingAll) return;
+    setShowClearConfirm(true);
+  };
+
+  const executeClearAll = async () => {
+    if (clearingAll) return;
+    setClearingAll(true);
+    try {
+      await clearAllNotifications();
+      setNotifications([]);
+      setUnreadCount(0);
+      setShowClearConfirm(false);
+      showToast('Alerts cleared successfully', 'success');
+    } catch (err) {
+      console.error('Error clearing delivery alerts:', err);
+      setShowClearConfirm(false);
+      showToast('Failed to clear alerts', 'error');
+    } finally {
+      setClearingAll(false);
+    }
+  };
+
   const getIconForType = (type) => {
     switch (type) {
       case 'subscription':
@@ -121,28 +150,54 @@ export default function DeliveryNotifications() {
         title="Delivery Alerts"
         onBack={() => navigation.goBack()}
         right={
-          unreadCount > 0 ? (
-            <Pressable
-              onPress={handleMarkAllRead}
-              disabled={markingAll}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: c.mintSoft,
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: radius.pill,
-              }}>
-              <CheckCheck size={14} color={c.brand} style={{ marginRight: 4 }} />
-              <Text
+          notifications.length > 0 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {unreadCount > 0 && (
+                <Pressable
+                  onPress={handleMarkAllRead}
+                  disabled={markingAll || clearingAll}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: c.mintSoft,
+                    paddingHorizontal: 8,
+                    paddingVertical: 5,
+                    borderRadius: radius.pill,
+                    marginRight: 6,
+                  }}>
+                  <CheckCheck size={13} color={c.brand} style={{ marginRight: 3 }} />
+                  <Text
+                    style={{
+                      fontFamily: 'Poppins-SemiBold',
+                      fontSize: 10,
+                      color: c.brand,
+                    }}>
+                    Mark read
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                onPress={handleClearAll}
+                disabled={clearingAll || markingAll}
                 style={{
-                  fontFamily: 'Poppins-SemiBold',
-                  fontSize: 11,
-                  color: c.brand,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#FEE2E2',
+                  paddingHorizontal: 8,
+                  paddingVertical: 5,
+                  borderRadius: radius.pill,
                 }}>
-                Mark all read
-              </Text>
-            </Pressable>
+                <Trash2 size={13} color="#DC2626" style={{ marginRight: 3 }} />
+                <Text
+                  style={{
+                    fontFamily: 'Poppins-SemiBold',
+                    fontSize: 10,
+                    color: '#DC2626',
+                  }}>
+                  {clearingAll ? 'Clearing...' : 'Clear All'}
+                </Text>
+              </Pressable>
+            </View>
           ) : null
         }
       />
@@ -254,6 +309,22 @@ export default function DeliveryNotifications() {
           ))}
         </View>
       )}
+
+      {/* Themed Confirmation Dialog for Clear All Alerts */}
+      <AppThemedDialog
+        visible={showClearConfirm}
+        type="delete"
+        title="Clear All Delivery Alerts?"
+        message="This will remove all delivery alerts and notifications from your list. This action cannot be undone."
+        confirmText="Clear All"
+        cancelText="Cancel"
+        isDestructive={true}
+        loading={clearingAll}
+        onConfirm={executeClearAll}
+        onCancel={() => {
+          if (!clearingAll) setShowClearConfirm(false);
+        }}
+      />
     </DetailScreen>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   Pressable,
+  TouchableOpacity,
   Text,
   View,
   ActivityIndicator,
@@ -20,6 +21,7 @@ import {
   DollarSign,
   AlertCircle,
   Bell,
+  Banknote,
 } from 'lucide-react-native';
 import {
   Avatar,
@@ -32,7 +34,8 @@ import {
   StatBox,
   Surface,
 } from '../../components/customer/ui';
-import { c, radius } from '../../theme/customerTheme';
+import { c, radius, appColors, swatches } from '../../theme/customerTheme';
+import { fonts } from '../../theme/fonts';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -40,8 +43,10 @@ import {
   toggleAvailability,
   getMySubscriptionDeliveries,
   getMyDeliveryOrders,
+  getMyCashHandovers,
 } from '../../services/deliveryService';
 import { getNotifications } from '../../services/authService';
+import { formatAddress } from '../../utils/address';
 
 export default function DeliveryDashboard() {
   const navigation = useNavigation();
@@ -50,6 +55,7 @@ export default function DeliveryDashboard() {
 
   const [profile, setProfile] = useState(null);
   const [summary, setSummary] = useState(null);
+  const [cashSummary, setCashSummary] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [toggling, setToggling] = useState(false);
 
@@ -58,16 +64,26 @@ export default function DeliveryDashboard() {
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (isPullToRefresh = false) => {
     try {
-      setLoading(true);
-      const [profRes, subsRes, ordsRes, notifRes] = await Promise.allSettled([
+      if (isPullToRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setFetchError(null);
+
+      const [profRes, subsRes, ordsRes, notifRes, cashRes] = await Promise.allSettled([
         getDeliveryProfile(),
         getMySubscriptionDeliveries(),
         getMyDeliveryOrders(),
         getNotifications(),
+        getMyCashHandovers(),
       ]);
+
+      let hadSuccess = false;
 
       if (profRes.status === 'fulfilled' && profRes.value) {
         const data = profRes.value;
@@ -75,18 +91,21 @@ export default function DeliveryDashboard() {
         setProfile(profObj);
         setSummary(data.today_summary || null);
         setIsOnline(profObj.is_available ?? true);
+        hadSuccess = true;
       }
 
       if (subsRes.status === 'fulfilled') {
         const val = subsRes.value;
         const list = Array.isArray(val) ? val : val?.deliveries || val?.results || [];
         setDailyDeliveries(list);
+        hadSuccess = true;
       }
 
       if (ordsRes.status === 'fulfilled') {
         const val = ordsRes.value;
         const list = Array.isArray(val) ? val : val?.orders || val?.results || [];
         setOrders(list);
+        hadSuccess = true;
       }
 
       if (notifRes.status === 'fulfilled' && notifRes.value) {
@@ -94,8 +113,17 @@ export default function DeliveryDashboard() {
         const list = Array.isArray(val) ? val : val?.notifications || val?.results || [];
         setUnreadNotifCount(val?.unread_count ?? list.filter((n) => !n.is_read).length);
       }
+
+      if (cashRes.status === 'fulfilled' && cashRes.value) {
+        setCashSummary(cashRes.value?.summary || null);
+      }
+
+      if (!hadSuccess && (profRes.status === 'rejected' || subsRes.status === 'rejected')) {
+        setFetchError('Unable to refresh dashboard data. Please check connection.');
+      }
     } catch (err) {
       console.error('Error loading delivery dashboard:', err);
+      setFetchError('Connection error loading dashboard. Tap to retry.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -104,7 +132,7 @@ export default function DeliveryDashboard() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchDashboardData();
+      fetchDashboardData(false);
     }, [])
   );
 
@@ -139,7 +167,6 @@ export default function DeliveryDashboard() {
   ).length;
 
   const totalDeliveries = summary?.total ?? (dailyDeliveries.length + orders.length);
-  const estimatedEarnings = (completedSubs + orders.filter(o => o.status === 'delivered').length) * 50;
 
   const getGreetingName = () => {
     if (!profile) return 'Partner';
@@ -153,8 +180,30 @@ export default function DeliveryDashboard() {
     return name[0].toUpperCase();
   };
 
+  const formatQuantity = (item) => {
+    const qty = parseFloat(item.quantity || 1);
+    const fmtQty = Number.isInteger(qty) ? String(qty) : qty.toFixed(1);
+    const unit = (item.product_unit || item.plan_unit || '').toLowerCase();
+    const pName = (item.product_name || '').toLowerCase();
+    let unitStr = 'L';
+    if (pName.includes('500ml') || pName.includes('500 ml')) unitStr = qty > 1 ? 'Units (500ml)' : 'Unit (500ml)';
+    else if (unit === 'ml' || unit.includes('milli')) unitStr = 'ml';
+    else if (unit === 'kg' || unit.includes('kilo')) unitStr = 'kg';
+    else if (unit === 'g' || unit.includes('gram')) unitStr = 'g';
+    else if (unit === 'piece' || unit.includes('pack')) unitStr = qty > 1 ? 'Packs' : 'Pack';
+    return `${fmtQty} ${unitStr}`;
+  };
+
   return (
-    <Screen>
+    <Screen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => fetchDashboardData(true)}
+          colors={[c.brand]}
+          tintColor={c.brand}
+        />
+      }>
       {/* Top Greeting Header */}
       <View
         style={{
@@ -182,6 +231,8 @@ export default function DeliveryDashboard() {
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Pressable
             onPress={() => navigation.navigate('Notifications')}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
             style={{
               width: 40,
               height: 40,
@@ -212,200 +263,358 @@ export default function DeliveryDashboard() {
         </View>
       </View>
 
+      {/* Network / Fetch Error Retry Banner */}
+      {fetchError ? (
+        <Surface padded style={{ marginBottom: 16, backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 8 }}>
+              <AlertCircle size={18} color="#DC2626" style={{ marginRight: 8 }} />
+              <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: '#991B1B', flex: 1 }}>
+                {fetchError}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => fetchDashboardData(false)}
+              style={{
+                backgroundColor: '#DC2626',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: radius.md,
+              }}>
+              <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 11, color: '#FFFFFF' }}>Retry</Text>
+            </Pressable>
+          </View>
+        </Surface>
+      ) : null}
+
       {loading ? (
         <View style={{ paddingVertical: 40, alignItems: 'center' }}>
           <ActivityIndicator size="large" color={c.brand} />
         </View>
       ) : (
         <>
-          {/* Main Dark Hero Card with Online/Offline Toggle Button */}
-          <DarkHero style={{ marginBottom: 20 }}>
+          {/* Main Dark Green Hero Card matching Screenshot */}
+          <View
+            style={{
+              backgroundColor: appColors.delivery.heroBg,
+              borderRadius: radius.xl,
+              padding: 18,
+              marginBottom: 16,
+              overflow: 'hidden',
+            }}>
+            {/* Top row inside hero: Online status pill and duty switch */}
             <View
               style={{
-                marginBottom: 16,
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                marginBottom: 16,
               }}>
-              <Pressable
-                onPress={handleToggleDuty}
-                disabled={toggling}
+              <View
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: isOnline ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)',
-                  paddingHorizontal: 12,
+                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  paddingHorizontal: 10,
                   paddingVertical: 5,
                   borderRadius: radius.pill,
-                  borderWidth: 1,
-                  borderColor: isOnline ? '#4ADE80' : '#FCA5A5',
                 }}>
                 <View
                   style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: isOnline ? '#4ADE80' : '#EF4444',
+                    width: 7,
+                    height: 7,
+                    borderRadius: 3.5,
+                    backgroundColor: isOnline ? appColors.delivery.badgeOnline : appColors.danger,
                     marginRight: 6,
                   }}
                 />
                 <Text
                   style={{
-                    fontFamily: 'Poppins-Bold',
-                    fontSize: 12,
-                    color: '#FFFFFF',
-                    marginRight: 4,
+                    fontFamily: fonts.bold,
+                    fontSize: 11,
+                    color: appColors.textInverse,
                     letterSpacing: 0.5,
                   }}>
                   {isOnline ? 'ONLINE' : 'OFFLINE'}
                 </Text>
-                <Switch
-                  value={isOnline}
-                  onValueChange={handleToggleDuty}
-                  disabled={toggling}
-                  trackColor={{ false: 'rgba(255,255,255,0.2)', true: c.mint }}
-                  thumbColor={isOnline ? c.brand : '#FFFFFF'}
-                  style={{ transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }] }}
-                />
-              </Pressable>
+              </View>
 
-              <Truck size={22} color="rgba(255,255,255,0.7)" strokeWidth={2} />
+              <Switch
+                value={isOnline}
+                onValueChange={handleToggleDuty}
+                disabled={toggling}
+                trackColor={{ false: 'rgba(255,255,255,0.2)', true: appColors.delivery.badgeOnline }}
+                thumbColor={appColors.textInverse}
+                style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+              />
             </View>
 
-            <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>
-              Today's Total Deliveries
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
+              Today's Deliveries
             </Text>
-            <View style={{ marginTop: 2, flexDirection: 'row', alignItems: 'flex-end' }}>
+
+            <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center' }}>
+              <Clock size={20} color={appColors.textInverse} style={{ marginRight: 8 }} />
               <Text
                 style={{
-                  fontFamily: 'Poppins-Bold',
-                  fontSize: 48,
-                  color: '#FFFFFF',
-                  letterSpacing: -2,
-                  lineHeight: 54,
+                  fontFamily: fonts.bold,
+                  fontSize: 28,
+                  color: appColors.textInverse,
+                  marginRight: 8,
                 }}>
                 {totalDeliveries}
               </Text>
               <Text
                 style={{
-                  fontFamily: 'Poppins-Medium',
-                  fontSize: 16,
-                  color: 'rgba(255,255,255,0.75)',
-                  marginBottom: 8,
-                  marginLeft: 8,
+                  fontFamily: fonts.regular,
+                  fontSize: 14,
+                  color: 'rgba(255,255,255,0.85)',
                 }}>
-                Drops Assigned
+                Drop Assigned
               </Text>
             </View>
 
-            {/* Sub summary inside hero - Earnings & Shift */}
+            {/* Sub banner inside hero: Morning & Evening Route Drop Summary */}
             <View
               style={{
                 flexDirection: 'row',
-                marginTop: 16,
-                backgroundColor: 'rgba(255,255,255,0.1)',
+                marginTop: 18,
+                backgroundColor: 'rgba(0, 0, 0, 0.22)',
                 borderRadius: radius.md,
-                padding: 14,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
                 alignItems: 'center',
                 justifyContent: 'space-between',
               }}>
-              <View>
-                <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>
-                  Today's Estimated Earnings
-                </Text>
-                <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 20, color: c.mint, marginTop: 2 }}>
-                  ₹{estimatedEarnings}
-                </Text>
-              </View>
-              <View
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.15)',
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: radius.pill,
-                }}>
-                <Text style={{ fontFamily: 'Poppins-SemiBold', fontSize: 11, color: '#FFFFFF' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                <Truck size={18} color={appColors.textInverse} style={{ marginRight: 8 }} />
+                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: appColors.textInverse, flex: 1 }}>
                   Morning & Evening Route
                 </Text>
               </View>
-            </View>
-          </DarkHero>
 
-          {/* Stat Boxes - Single Source of Truth for Status Counts */}
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-            <StatBox
-              label="Pending"
-              value={String(pendingSubs)}
-              hint="to be delivered"
-              accent={c.amber}
-            />
-            <StatBox
-              label="Completed"
-              value={String(completedSubs)}
-              hint="successful drops"
-              accent={c.brand}
-            />
-            <StatBox
-              label="Failed"
-              value={String(failedSubs)}
-              hint="skipped / away"
-              accent={failedSubs > 0 ? c.red : c.inkMuted}
-            />
+              <Pressable
+                onPress={() => navigation.navigate('MySubscriptions')}
+                accessibilityRole="button"
+                accessibilityLabel="View Route Details"
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: radius.sm,
+                  opacity: pressed ? 0.8 : 1,
+                })}>
+                <Text style={{ fontFamily: fonts.semiBold, fontSize: 12, color: appColors.textInverse, marginRight: 4 }}>
+                  View Details >
+                </Text>
+
+              </Pressable>
+            </View>
           </View>
 
-          {/* Route Shortcuts */}
-          <SectionLabel>Quick Navigation</SectionLabel>
+          {/* Cash in Hand Card (Distinct Mint Card with Hand Over Button) */}
+          <Surface
+            padded
+            style={{
+              marginBottom: 16,
+              backgroundColor: '#F0FDF4',
+              borderColor: '#BBF7D0',
+              borderWidth: 1.5,
+              borderRadius: radius.xl,
+            }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 10 }}>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: '#DCFCE7',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
+                  }}>
+                  <Banknote size={22} color="#15803D" strokeWidth={2.2} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#0F172A' }}>
+                    Cash in Hand: ₹{Number(cashSummary?.total_pending_handover ?? cashSummary?.pending_handover_balance ?? 0).toFixed(2)}
+                  </Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: '#15803D', marginTop: 1 }}>
+                    Today collected: ₹{Number(cashSummary?.today_cash ?? 0).toFixed(2)} ({cashSummary?.today_order_count ?? 0} orders)
+                  </Text>
+                </View>
+              </View>
 
-          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-            <Pressable
+              <Pressable
+                onPress={() => navigation.navigate('CashHandover')}
+                accessibilityRole="button"
+                accessibilityLabel="Hand Over Cash"
+                style={({ pressed }) => ({
+                  backgroundColor: pressed ? '#14532D' : '#166534',
+                  height: 38,
+                  paddingHorizontal: 14,
+                  borderRadius: 10,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                })}>
+                <Text
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#ffffff",
+                    fontSize: 12,
+                    fontFamily: fonts.bold,
+                    includeFontPadding: false,
+                    borderColor: appColors.primary,
+                    borderWidth: 1,
+                    height: 40,
+                    borderRadius: 10,
+                    padding: 10,
+                    backgroundColor: "#166534",
+                  }}>
+                  Hand Over >
+                </Text>
+              </Pressable>
+            </View>
+          </Surface>
+
+          {/* 3 Summary Cards matching Screenshot: Pending, Completed, Failed */}
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 18 }}>
+            {/* Pending */}
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: appColors.surface,
+                borderRadius: radius.lg,
+                paddingVertical: 14,
+                paddingHorizontal: 8,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: appColors.warningBorder,
+              }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <Clock size={16} color={appColors.warning} style={{ marginRight: 4 }} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: appColors.warning }}>
+                  {pendingSubs}
+                </Text>
+              </View>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: appColors.textMuted }}>
+                Pending
+              </Text>
+            </View>
+
+            {/* Completed */}
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: appColors.surface,
+                borderRadius: radius.lg,
+                paddingVertical: 14,
+                paddingHorizontal: 8,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: appColors.successBorder,
+              }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <Package size={16} color={appColors.primary} style={{ marginRight: 4 }} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: appColors.primary }}>
+                  {completedSubs}
+                </Text>
+              </View>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: appColors.textMuted }}>
+                Completed
+              </Text>
+            </View>
+
+            {/* Failed */}
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: appColors.surface,
+                borderRadius: radius.lg,
+                paddingVertical: 14,
+                paddingHorizontal: 8,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: appColors.dangerBorder,
+              }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <AlertCircle size={16} color={appColors.danger} style={{ marginRight: 4 }} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: appColors.danger }}>
+                  {failedSubs}
+                </Text>
+              </View>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: appColors.textMuted }}>
+                Failed
+              </Text>
+            </View>
+          </View>
+
+          {/* Quick Actions (Matching Screenshot 2 Column Layout) */}
+          <SectionLabel>Quick Actions</SectionLabel>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18 }}>
+            <TouchableOpacity
               onPress={() => navigation.navigate('MySubscriptions')}
-              style={{ flex: 1 }}>
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Milk Route"
+              style={{ flex: 1, marginRight: 6 }}>
               <Surface padded style={{ alignItems: 'flex-start' }}>
                 <View
                   style={{
-                    width: 40,
-                    height: 40,
+                    width: 38,
+                    height: 38,
                     borderRadius: 12,
-                    backgroundColor: c.mintSoft,
+                    backgroundColor: appColors.primaryLight,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginBottom: 10,
                   }}>
-                  <Milk size={20} color={c.brand} strokeWidth={2} />
+                  <Milk size={20} color={appColors.primary} strokeWidth={2} />
                 </View>
-                <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 14, color: c.ink }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: appColors.textPrimary }}>
                   Milk Route
                 </Text>
-                <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: c.inkMuted, marginTop: 2 }}>
-                  {dailyDeliveries.length} daily drops
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: appColors.textMuted, marginTop: 2 }}>
+                  {dailyDeliveries.length} daily drop
                 </Text>
               </Surface>
-            </Pressable>
+            </TouchableOpacity>
 
-            <Pressable
+            <TouchableOpacity
               onPress={() => navigation.navigate('MyOrders')}
-              style={{ flex: 1 }}>
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="One-Time Orders"
+              style={{ flex: 1, marginLeft: 6 }}>
               <Surface padded style={{ alignItems: 'flex-start' }}>
                 <View
                   style={{
-                    width: 40,
-                    height: 40,
+                    width: 38,
+                    height: 38,
                     borderRadius: 12,
-                    backgroundColor: '#FEF3C7',
+                    backgroundColor: appColors.warningBg,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginBottom: 10,
                   }}>
-                  <Package size={20} color="#B45309" strokeWidth={2} />
+                  <Package size={20} color={appColors.warning} strokeWidth={2} />
                 </View>
-                <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 14, color: c.ink }}>
-                  Orders ({orders.length})
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: appColors.textPrimary }}>
+                  One-Time Orders
                 </Text>
-                <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: c.inkMuted, marginTop: 2 }}>
-                  One-time orders
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: appColors.textMuted, marginTop: 2 }}>
+                  {orders.length} order
                 </Text>
               </Surface>
-            </Pressable>
+            </TouchableOpacity>
           </View>
 
           {/* Today's Route Drops List */}
@@ -431,28 +640,40 @@ export default function DeliveryDashboard() {
               </Text>
             </Surface>
           ) : (
-            <ListSection style={{ marginTop: 4 }}>
-              {dailyDeliveries.slice(0, 5).map((item, index) => {
+            <View style={{ gap: 10, marginTop: 6, marginBottom: 20 }}>
+              {dailyDeliveries.slice(0, 5).map((item) => {
                 const isDelivered = item.status === 'delivered' || item.status === 'completed';
                 const tone = isDelivered ? 'live' : item.status === 'failed' || item.status === 'skipped' ? 'danger' : 'warn';
                 return (
-                  <ListRow
+                  <Pressable
                     key={item.id}
-                    Icon={isDelivered ? CheckCircle2 : MapPin}
-                    title={item.customer_name || item.user_name || `Customer #${item.id}`}
-                    subtitle={`${item.product_name || 'Milk'} • ${item.quantity || '1.0'} L • ${item.address || item.delivery_address || 'Route Address'}`}
-                    right={
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Chip label={item.status || 'Pending'} tone={tone} />
-                        <ChevronRight size={16} color={c.inkMuted} style={{ marginLeft: 6 }} />
+                    onPress={() => navigation.navigate('DeliveryDetails', { delivery: item })}>
+                    <Surface padded style={{ borderRadius: radius.lg }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 14, color: c.ink }}>
+                          {item.customer?.name || item.customer_name || item.user_name || `Customer #${item.id}`}
+                        </Text>
+                        <Chip label={(item.status || 'Pending').replace('_', ' ')} tone={tone} />
                       </View>
-                    }
-                    onPress={() => navigation.navigate('DeliveryDetails', { delivery: item })}
-                    last={index === Math.min(dailyDeliveries.length, 5) - 1}
-                  />
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                        <MapPin size={13} color={c.inkMuted} style={{ marginRight: 6 }} />
+                        <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: c.inkMuted }} numberOfLines={1}>
+                          {formatAddress(item.delivery_address || item.address)}
+                        </Text>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                        <Milk size={13} color={appColors.primary} style={{ marginRight: 6 }} />
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: appColors.primary }}>
+                          {formatQuantity(item)} • {item.product_name || 'Milk'}
+                        </Text>
+                      </View>
+                    </Surface>
+                  </Pressable>
                 );
               })}
-            </ListSection>
+            </View>
           )}
         </>
       )}

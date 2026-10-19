@@ -3,7 +3,9 @@ import {
   View,
   Text,
   Pressable,
+  TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
@@ -12,6 +14,7 @@ import {
   ChevronRight,
   Truck,
   CheckCircle2,
+  AlertCircle,
 } from 'lucide-react-native';
 import {
   Chip,
@@ -23,6 +26,8 @@ import {
 import { c, radius } from '../../theme/customerTheme';
 import { useToast } from '../../context/ToastContext';
 import { getMyDeliveryOrders, updateOrderStatus } from '../../services/deliveryService';
+import { formatAddress } from '../../utils/address';
+import { formatProductQuantity } from '../../utils/quantity';
 
 const STATUS_TABS = ['All', 'Pending', 'Out for Delivery', 'Delivered'];
 
@@ -33,24 +38,33 @@ export default function MyOrders() {
   const [activeTab, setActiveTab] = useState('All');
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (isPull = false) => {
     try {
-      setLoading(true);
+      if (isPull) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setFetchError(null);
       const data = await getMyDeliveryOrders();
       const list = Array.isArray(data) ? data : data?.orders || data?.results || [];
       setOrders(list);
     } catch (err) {
       console.error('Error fetching delivery orders:', err);
+      setFetchError('Unable to load orders. Tap retry.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
-      fetchOrders();
+      fetchOrders(false);
     }, [])
   );
 
@@ -93,24 +107,44 @@ export default function MyOrders() {
     }
   };
 
-  const formatAddress = (addr) => {
-    if (!addr) return 'Sangola Local Route Address';
-    if (typeof addr === 'string') return addr;
-    const parts = [
-      addr.house_number,
-      addr.street,
-      addr.area,
-      addr.city,
-    ].filter(Boolean);
-    return parts.join(', ');
-  };
-
   return (
-    <Screen>
+    <Screen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => fetchOrders(true)}
+          colors={[c.brand]}
+          tintColor={c.brand}
+        />
+      }>
       <ScreenHeader
         title="One-Time Orders"
         subtitle="Manage assigned customer orders and delivery updates"
       />
+
+      {/* Network Error Retry Banner */}
+      {fetchError ? (
+        <Surface padded style={{ marginBottom: 16, backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 8 }}>
+              <AlertCircle size={18} color="#DC2626" style={{ marginRight: 8 }} />
+              <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: '#991B1B', flex: 1 }}>
+                {fetchError}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => fetchOrders(false)}
+              style={{
+                backgroundColor: '#DC2626',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: radius.md,
+              }}>
+              <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 11, color: '#FFFFFF' }}>Retry</Text>
+            </Pressable>
+          </View>
+        </Surface>
+      ) : null}
 
       {/* Filter Tabs */}
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
@@ -191,6 +225,21 @@ export default function MyOrders() {
                   {customerName}
                 </Text>
 
+                {/* Items Preview */}
+                {Array.isArray(item.items) && item.items.length > 0 ? (
+                  <View style={{ marginTop: 4 }}>
+                    <Text style={{ fontFamily: 'Poppins-Medium', fontSize: 12, color: c.brand }}>
+                      {item.items.map(i => `${i.product_name || 'Product'} × ${formatProductQuantity(i)}`).join(', ')}
+                    </Text>
+                  </View>
+                ) : item.product_name ? (
+                  <View style={{ marginTop: 4 }}>
+                    <Text style={{ fontFamily: 'Poppins-Medium', fontSize: 12, color: c.brand }}>
+                      {item.product_name}
+                    </Text>
+                  </View>
+                ) : null}
+
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 6 }}>
                   <MapPin size={15} color={c.inkMuted} style={{ marginTop: 2, marginRight: 6 }} />
                   <Text
@@ -226,42 +275,101 @@ export default function MyOrders() {
                     </Text>
                   </View>
 
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('OrderDetails', { order: item })}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel="View Order Details"
+                      style={{
+                        backgroundColor: '#FFFFFF',
+                        height: 38,
+                        paddingHorizontal: 14,
+                        borderRadius: 10,
+                        borderWidth: 1.2,
+                        borderColor: '#CBD5E1',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                      <Text
+                        style={{
+                          color: '#0F172A',
+                          fontSize: 13,
+                          fontFamily: 'Poppins-Bold',
+                          includeFontPadding: false,
+                          marginRight: 6,
+                        }}>
+                        Details
+                      </Text>
+                      <ChevronRight size={16} color="#0F172A" strokeWidth={2.2} />
+                    </TouchableOpacity>
+
                     {!isDelivered && !isOut && (
-                      <PrimaryBtn
-                        label="Dispatch"
-                        size="sm"
-                        icon={Truck}
-                        disabled={isUpdating}
+                      <TouchableOpacity
                         onPress={() => handleUpdateStatus(item.id, 'out_for_delivery')}
-                      />
+                        disabled={isUpdating}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Dispatch Order"
+                        style={{
+                          backgroundColor: isUpdating ? '#94A3B8' : '#166534',
+                          height: 38,
+                          paddingHorizontal: 14,
+                          borderRadius: 10,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginLeft: 8,
+                          opacity: isUpdating ? 0.6 : 1,
+                        }}>
+                        {isUpdating ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <>
+                            <Truck size={15} color="#FFFFFF" strokeWidth={2.2} style={{ marginRight: 6 }} />
+                            <Text
+                              style={{
+                                color: '#FFFFFF',
+                                fontSize: 13,
+                                fontFamily: 'Poppins-Bold',
+                                includeFontPadding: false,
+                              }}>
+                              Dispatch
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
                     )}
 
                     {!isDelivered && isOut && (
-                      <PrimaryBtn
-                        label="Complete"
-                        size="sm"
-                        icon={CheckCircle2}
-                        disabled={isUpdating}
-                        onPress={() => handleUpdateStatus(item.id, 'delivered')}
-                      />
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('OrderDetails', { order: item })}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Complete Delivery"
+                        style={{
+                          backgroundColor: '#166534',
+                          height: 38,
+                          paddingHorizontal: 14,
+                          borderRadius: 10,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginLeft: 8,
+                        }}>
+                        <CheckCircle2 size={15} color="#FFFFFF" strokeWidth={2.2} style={{ marginRight: 6 }} />
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 13,
+                            fontFamily: 'Poppins-Bold',
+                            includeFontPadding: false,
+                          }}>
+                          Complete
+                        </Text>
+                      </TouchableOpacity>
                     )}
-
-                    <Pressable
-                      onPress={() => navigation.navigate('OrderDetails', { order: item })}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        backgroundColor: c.surfaceMuted,
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        borderRadius: radius.md,
-                      }}>
-                      <Text style={{ fontFamily: 'Poppins-SemiBold', fontSize: 12, color: c.ink, marginRight: 2 }}>
-                        Details
-                      </Text>
-                      <ChevronRight size={15} color={c.ink} />
-                    </Pressable>
                   </View>
                 </View>
               </Surface>

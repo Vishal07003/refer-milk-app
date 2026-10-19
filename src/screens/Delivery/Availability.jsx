@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Switch, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Sun, Moon, Clock, ShieldCheck } from 'lucide-react-native';
+import { Sun, Moon, Clock, ShieldCheck, Radio, Info } from 'lucide-react-native';
 import {
   Chip,
   DetailHeader,
@@ -78,36 +78,43 @@ export default function Availability() {
           <SectionLabel>Live Duty Status</SectionLabel>
           <Surface padded style={{ marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <View style={{ flex: 1, paddingRight: 10 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                  <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 16, color: c.ink, marginRight: 8 }}>
-                    On Duty Status
-                  </Text>
-                  <Chip
-                    label={isAvailable ? 'ONLINE' : 'OFFLINE'}
-                    tone={isAvailable ? 'live' : 'danger'}
-                  />
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 10 }}>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: '#DCFCE7',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
+                  }}>
+                  <Radio size={22} color="#15803D" strokeWidth={2.2} />
                 </View>
-                <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: c.inkMuted }}>
-                  {isAvailable
-                    ? 'Receiving daily route & one-time order assignments'
-                    : 'Currently off duty, no new routes assigned'}
-                </Text>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 15, color: c.ink }}>
+                    On Duty
+                  </Text>
+                  <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: c.inkMuted, marginTop: 2 }}>
+                    Receive daily route and one-time order assignments
+                  </Text>
+                </View>
               </View>
 
               <Switch
                 value={isAvailable}
                 onValueChange={handleToggle}
                 disabled={updating}
-                trackColor={{ false: '#E5E7EB', true: c.brand }}
-                thumbColor={isAvailable ? '#FFFFFF' : c.inkMuted}
+                trackColor={{ false: '#E5E7EB', true: '#2D5A36' }}
+                thumbColor="#FFFFFF"
               />
             </View>
           </Surface>
 
           {/* Shift Preferences */}
           <SectionLabel>Shift Preferences</SectionLabel>
-          <Surface padded style={{ marginBottom: 20 }}>
+          <Surface padded style={{ marginBottom: 16 }}>
             {/* Morning Shift */}
             <View
               style={{
@@ -122,13 +129,13 @@ export default function Availability() {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View
                   style={{
-                    width: 38,
-                    height: 38,
+                    width: 40,
+                    height: 40,
                     borderRadius: 10,
                     backgroundColor: '#FEF3C7',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginRight: 10,
+                    marginRight: 12,
                   }}>
                   <Sun size={20} color="#D97706" />
                 </View>
@@ -136,7 +143,7 @@ export default function Availability() {
                   <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 14, color: c.ink }}>
                     Morning Shift
                   </Text>
-                  <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 11, color: c.inkMuted }}>
+                  <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: c.inkMuted }}>
                     05:00 AM - 08:30 AM
                   </Text>
                 </View>
@@ -144,7 +151,8 @@ export default function Availability() {
               <Switch
                 value={morningShift}
                 onValueChange={setMorningShift}
-                trackColor={{ false: '#E5E7EB', true: c.brand }}
+                trackColor={{ false: '#E5E7EB', true: '#2D5A36' }}
+                thumbColor="#FFFFFF"
               />
             </View>
 
@@ -153,13 +161,13 @@ export default function Availability() {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View
                   style={{
-                    width: 38,
-                    height: 38,
+                    width: 40,
+                    height: 40,
                     borderRadius: 10,
                     backgroundColor: '#DBEAFE',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginRight: 10,
+                    marginRight: 12,
                   }}>
                   <Moon size={20} color="#1D4ED8" />
                 </View>
@@ -167,7 +175,7 @@ export default function Availability() {
                   <Text style={{ fontFamily: 'Poppins-Bold', fontSize: 14, color: c.ink }}>
                     Evening Shift
                   </Text>
-                  <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 11, color: c.inkMuted }}>
+                  <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 12, color: c.inkMuted }}>
                     05:00 PM - 07:30 PM
                   </Text>
                 </View>
@@ -175,10 +183,28 @@ export default function Availability() {
               <Switch
                 value={eveningShift}
                 onValueChange={setEveningShift}
-                trackColor={{ false: '#E5E7EB', true: c.brand }}
+                trackColor={{ false: '#E5E7EB', true: '#2D5A36' }}
+                thumbColor="#FFFFFF"
               />
             </View>
           </Surface>
+
+          {/* Info Banner matching screenshot */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#F0FDF4',
+              borderRadius: radius.md,
+              borderWidth: 1,
+              borderColor: '#BBF7D0',
+              padding: 14,
+            }}>
+            <Info size={18} color="#16A34A" style={{ marginRight: 10 }} />
+            <Text style={{ fontFamily: 'Poppins-Medium', fontSize: 12, color: '#166534', flex: 1, lineHeight: 18 }}>
+              Enable at least one shift to receive route and order assignments.
+            </Text>
+          </View>
         </>
       )}
     </DetailScreen>
