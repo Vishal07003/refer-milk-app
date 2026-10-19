@@ -40,6 +40,9 @@ set APP_HOME=%DIRNAME%
 @rem Resolve any "." and ".." in APP_HOME to make it shorter.
 for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 
+@rem Ensure Node.js processes invoked by Gradle/codegen have sufficient memory
+if "%NODE_OPTIONS%"=="" set NODE_OPTIONS=--max-old-space-size=3072
+
 @rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
 set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
 

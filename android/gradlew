@@ -88,6 +88,9 @@ APP_BASE_NAME=${0##*/}
 # Discard cd standard output in case $CDPATH is set (https://github.com/gradle/gradle/issues/25036)
 APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exit
 
+# Ensure Node.js processes have sufficient memory for React Native codegen
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=3072}"
+
 # Use the maximum available, or set MAX_FD != -1 to use that value.
 MAX_FD=maximum
 
