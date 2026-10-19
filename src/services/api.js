@@ -1,7 +1,22 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const BASE_URL = 'http://192.168.31.69:8000/api/v1';
+const BASE_URL = 'https://refermilk.pythonanywhere.com/api/v1';
+export const MEDIA_BASE_URL = 'https://refermilk.pythonanywhere.com';
+
+/**
+ * Reusable helper to resolve product & category images.
+ * - Returns null for missing or invalid image values.
+ * - Preserves absolute HTTP/HTTPS image URLs.
+ * - Correctly prefixes relative /media/... paths with the production origin.
+ * - Avoids duplicate slashes.
+ */
+export const resolveImageUrl = (img) => {
+  if (!img || typeof img !== 'string') return null;
+  const trimmed = img.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  return `${MEDIA_BASE_URL}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+};
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -38,10 +53,14 @@ api.interceptors.request.use(
     try {
       const token = await AsyncStorage.getItem('access_token');
       if (token) {
+
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (error) {
       console.error('Error fetching access token:', error);
+    }
+    if (__DEV__) {
+      console.log(`[API Req] ${config.method?.toUpperCase()} ${config.baseURL || ''}${config.url || ''}`);
     }
     return config;
   },
@@ -50,19 +69,33 @@ api.interceptors.request.use(
 
 // Handle 401 & auto-refresh token
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (__DEV__) {
+      console.log(`[API Res] ${response.status} ${response.config.url}`);
+    }
+    return response;
+  },
   async (error) => {
+    if (__DEV__) {
+      if (error.response) {
+        console.warn(`[API Err] ${error.response.status} ${error.config?.url}:`, error.response.data);
+      } else if (error.request) {
+        console.warn(`[API Network Err] ${error.config?.baseURL || ''}${error.config?.url || ''}:`, error.message);
+      }
+    }
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       // If the failing request is the refresh endpoint itself, fail immediately
       if (originalRequest.url?.includes('/auth/token/refresh/')) {
-        await AsyncStorage.multiRemove([
-          'access_token',
-          'refresh_token',
-          'user_role',
-          'user_data',
-        ]);
+        const clearKeys = ['access_token', 'refresh_token', 'user_role', 'user_data'];
+        if (typeof AsyncStorage.multiRemove === 'function') {
+          await AsyncStorage.multiRemove(clearKeys);
+        } else if (typeof AsyncStorage.removeMany === 'function') {
+          await AsyncStorage.removeMany(clearKeys);
+        } else {
+          for (const k of clearKeys) await AsyncStorage.removeItem(k);
+        }
         if (onUnauthorizedCallback) onUnauthorizedCallback();
         return Promise.reject(error);
       }
@@ -111,12 +144,14 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        await AsyncStorage.multiRemove([
-          'access_token',
-          'refresh_token',
-          'user_role',
-          'user_data',
-        ]);
+        const clearKeys = ['access_token', 'refresh_token', 'user_role', 'user_data'];
+        if (typeof AsyncStorage.multiRemove === 'function') {
+          await AsyncStorage.multiRemove(clearKeys);
+        } else if (typeof AsyncStorage.removeMany === 'function') {
+          await AsyncStorage.removeMany(clearKeys);
+        } else {
+          for (const k of clearKeys) await AsyncStorage.removeItem(k);
+        }
         if (onUnauthorizedCallback) onUnauthorizedCallback();
         return Promise.reject(refreshError);
       } finally {
@@ -129,3 +164,5 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+

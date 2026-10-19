@@ -6,6 +6,31 @@ import api from './api';
  */
 export const getMySubscriptions = async () => {
   const response = await api.get('/subscriptions/my/');
+  const data = response.data;
+  return Array.isArray(data)
+    ? data
+    : Array.isArray(data?.subscriptions)
+    ? data.subscriptions
+    : Array.isArray(data?.results)
+    ? data.results
+    : [];
+};
+
+/**
+ * Get available active subscription plans for customers.
+ * Endpoint: GET /api/v1/subscriptions/plans/
+ */
+export const getActiveSubscriptionPlans = async () => {
+  const response = await api.get('/subscriptions/plans/');
+  return response.data;
+};
+
+/**
+ * Customer requests a subscription linked to an active plan (Pending Approval).
+ * Endpoint: POST /api/v1/subscriptions/request/
+ */
+export const requestSubscription = async (requestData) => {
+  const response = await api.post('/subscriptions/request/', requestData);
   return response.data;
 };
 
@@ -28,11 +53,56 @@ export const getSubscriptionDetail = async (id) => {
 };
 
 /**
+ * Update an existing subscription (e.g. delivery slot, quantity, address).
+ * Endpoint: PATCH /api/v1/subscriptions/:id/
+ */
+export const updateSubscription = async (id, data) => {
+  const response = await api.patch(`/subscriptions/${id}/`, data);
+  return response.data;
+};
+
+/**
  * Cancel a subscription.
  * Endpoint: POST /api/v1/subscriptions/:id/cancel/
  */
 export const cancelSubscription = async (id, reason = '') => {
   const response = await api.post(`/subscriptions/${id}/cancel/`, { reason });
+  return response.data;
+};
+
+/**
+ * Pause an active subscription.
+ * Endpoint: POST /api/v1/subscriptions/:id/pause/
+ */
+export const pauseSubscription = async (id) => {
+  const response = await api.post(`/subscriptions/${id}/pause/`);
+  return response.data;
+};
+
+/**
+ * Resume a paused subscription.
+ * Endpoint: POST /api/v1/subscriptions/:id/resume/
+ */
+export const resumeSubscription = async (id) => {
+  const response = await api.post(`/subscriptions/${id}/resume/`);
+  return response.data;
+};
+
+/**
+ * Get authoritative customer bills calculated from daily deliveries.
+ * Endpoint: GET /api/v1/subscriptions/bills/
+ */
+export const getCustomerBills = async () => {
+  const response = await api.get('/subscriptions/bills/');
+  return response.data;
+};
+
+/**
+ * Get daily delivery calendar for customer's own subscription.
+ * Endpoint: GET /api/v1/subscriptions/:id/deliveries/
+ */
+export const getSubscriptionDeliveries = async (id) => {
+  const response = await api.get(`/subscriptions/${id}/deliveries/`);
   return response.data;
 };
 
@@ -102,7 +172,7 @@ export const getWalletTransactions = async () => {
  * Add money to DudhDairy Wallet (Legacy/Direct).
  * Endpoint: POST /api/v1/subscriptions/wallet/add/
  */
-export const addMoneyToWallet = async ({ amount, payment_method = 'upi' }) => {
+export const addMoneyToWallet = async ({ amount, payment_method = 'cash' }) => {
   const response = await api.post('/subscriptions/wallet/add/', {
     amount,
     payment_method,
@@ -135,5 +205,36 @@ export const verifyWalletPayment = async ({
     razorpay_signature,
     amount,
   });
+  return response.data;
+};
+
+/**
+ * Get current customer active vacation status.
+ * Endpoint: GET /api/v1/subscriptions/vacation/current/
+ */
+export const getCurrentVacation = async () => {
+  const response = await api.get('/subscriptions/vacation/current/');
+  return response.data;
+};
+
+/**
+ * Activate account-wide Vacation Mode with start and end dates.
+ * Endpoint: POST /api/v1/subscriptions/vacation/activate/
+ */
+export const activateVacation = async ({ start_date, end_date, reason = '' }) => {
+  const response = await api.post('/subscriptions/vacation/activate/', {
+    start_date,
+    end_date,
+    reason,
+  });
+  return response.data;
+};
+
+/**
+ * Cancel active Vacation Mode early.
+ * Endpoint: POST /api/v1/subscriptions/vacation/cancel/
+ */
+export const cancelVacation = async () => {
+  const response = await api.post('/subscriptions/vacation/cancel/');
   return response.data;
 };

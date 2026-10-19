@@ -86,3 +86,55 @@ export const updateDailyDeliveryStatus = async (dailyDeliveryId, status, notes =
   });
   return response.data;
 };
+
+/**
+ * Collect cash payment for an assigned order.
+ * Endpoint: POST /api/v1/delivery/orders/:id/collect-payment/
+ */
+export const collectOrderPayment = async (orderId, paymentMethod = 'cash') => {
+  const payload = { payment_method: 'cash' };
+  const response = await api.post(`/delivery/orders/${orderId}/collect-payment/`, payload);
+  return response.data;
+};
+
+/**
+ * Report failure/unable to collect payment.
+ * Endpoint: POST /api/v1/delivery/orders/:id/payment-failed/
+ */
+export const reportPaymentFailed = async (orderId, reason = 'customer_unavailable', notes = '') => {
+  const response = await api.post(`/delivery/orders/${orderId}/payment-failed/`, {
+    reason,
+    notes,
+  });
+  return response.data;
+};
+
+/**
+ * Get delivery partner offline collections summary and history.
+ * Endpoint: GET /api/v1/delivery/offline-collections/
+ */
+export const getOfflineCollections = async () => {
+  const response = await api.get('/delivery/offline-collections/');
+  return response.data;
+};
+
+/**
+ * Submit cash handover to hub.
+ * Endpoint: POST /api/v1/delivery/cash-handover/submit/
+ */
+export const submitCashHandover = async (submittedAmount, deliveryNotes = '') => {
+  const response = await api.post('/delivery/cash-handover/submit/', {
+    submitted_amount: submittedAmount,
+    delivery_notes: deliveryNotes,
+  });
+  return response.data;
+};
+
+/**
+ * Get partner cash handover history and pending unreconciled balance.
+ * Endpoint: GET /api/v1/delivery/cash-handover/my/
+ */
+export const getMyCashHandovers = async () => {
+  const response = await api.get('/delivery/cash-handover/my/');
+  return response.data;
+};

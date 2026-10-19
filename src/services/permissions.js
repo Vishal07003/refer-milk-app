@@ -25,39 +25,59 @@ export async function checkLocationPermission() {
 
 export async function requestLocationPermission() {
   if (Platform.OS === 'android') {
-    const fineStatus = await check(ANDROID_FINE_LOCATION);
-    const coarseStatus = await check(ANDROID_COARSE_LOCATION);
+    try {
+      const fineStatus = await check(ANDROID_FINE_LOCATION);
+      const coarseStatus = await check(ANDROID_COARSE_LOCATION);
 
-    if (
-      fineStatus === RESULTS.GRANTED ||
-      fineStatus === RESULTS.LIMITED ||
-      coarseStatus === RESULTS.GRANTED ||
-      coarseStatus === RESULTS.LIMITED
-    ) {
-      return true;
+      if (
+        fineStatus === RESULTS.GRANTED ||
+        fineStatus === RESULTS.LIMITED ||
+        coarseStatus === RESULTS.GRANTED ||
+        coarseStatus === RESULTS.LIMITED
+      ) {
+        return true;
+      }
+
+      if (
+        fineStatus === RESULTS.BLOCKED &&
+        coarseStatus === RESULTS.BLOCKED
+      ) {
+        return false;
+      }
+
+      const statuses = await requestMultiple([
+        ANDROID_FINE_LOCATION,
+        ANDROID_COARSE_LOCATION,
+      ]);
+
+      const fine = statuses[ANDROID_FINE_LOCATION];
+      const coarse = statuses[ANDROID_COARSE_LOCATION];
+
+      return (
+        fine === RESULTS.GRANTED ||
+        fine === RESULTS.LIMITED ||
+        coarse === RESULTS.GRANTED ||
+        coarse === RESULTS.LIMITED
+      );
+    } catch (permErr) {
+      console.warn('react-native-permissions failed, falling back to PermissionsAndroid:', permErr?.message);
+      try {
+        const { PermissionsAndroid } = require('react-native');
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        ]);
+        return (
+          granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] ===
+          PermissionsAndroid.RESULTS.GRANTED ||
+          granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] ===
+          PermissionsAndroid.RESULTS.GRANTED
+        );
+      } catch (nativeErr) {
+        console.warn('Native PermissionsAndroid request failed:', nativeErr?.message);
+        return false;
+      }
     }
-
-    if (
-      fineStatus === RESULTS.BLOCKED &&
-      coarseStatus === RESULTS.BLOCKED
-    ) {
-      return false;
-    }
-
-    const statuses = await requestMultiple([
-      ANDROID_FINE_LOCATION,
-      ANDROID_COARSE_LOCATION,
-    ]);
-
-    const fine = statuses[ANDROID_FINE_LOCATION];
-    const coarse = statuses[ANDROID_COARSE_LOCATION];
-
-    return (
-      fine === RESULTS.GRANTED ||
-      fine === RESULTS.LIMITED ||
-      coarse === RESULTS.GRANTED ||
-      coarse === RESULTS.LIMITED
-    );
   }
 
   const status = await check(IOS_LOCATION_PERMISSION);

@@ -1,11 +1,43 @@
 import { Platform, PermissionsAndroid } from 'react-native';
-import messaging from '@react-native-firebase/messaging';
+import {
+  getMessaging,
+  getToken as fcmGetToken,
+  onTokenRefresh as fcmOnTokenRefresh,
+  onMessage as fcmOnMessage,
+  onNotificationOpenedApp as fcmOnNotificationOpenedApp,
+  getInitialNotification as fcmGetInitialNotification,
+  requestPermission as fcmRequestPermission,
+  AuthorizationStatus,
+} from '@react-native-firebase/messaging';
+
+/**
+ * Safely retrieves the modular messaging instance.
+ */
+const getMessagingInstance = () => {
+  try {
+    return getMessaging();
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[FCM] Error obtaining messaging instance:', error?.message);
+    }
+    return null;
+  }
+};
+
+/**
+ * Masks FCM token for safe debug logging (shows first 8 and last 6 chars only).
+ */
+export const maskToken = (token) => {
+  if (!token || typeof token !== 'string') return '';
+  if (token.length <= 14) return '***';
+  return `${token.slice(0, 8)}...${token.slice(-6)}`;
+};
 
 /**
  * Requests push notification permission from the operating system.
  * Android 13+ (API 33+): Uses PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS.
  * Android < 33: Returns true automatically as permission is implicit.
- * iOS: Uses messaging().requestPermission() and checks AUTHORIZED or PROVISIONAL.
+ * iOS: Uses modular fcmRequestPermission(messaging).
  */
 export const requestNotificationPermission = async () => {
   try {
@@ -20,18 +52,20 @@ export const requestNotificationPermission = async () => {
         }
         return isGranted;
       }
-      // On Android < 33, notifications are granted by default
       if (__DEV__) {
         console.log('[FCM] Android < 33 detected: Notifications enabled by default.');
       }
       return true;
     }
 
-    // iOS Permission Request
-    const authStatus = await messaging().requestPermission();
+    // iOS modular permission request
+    const messaging = getMessagingInstance();
+    if (!messaging) return false;
+
+    const authStatus = await fcmRequestPermission(messaging);
     const enabled =
-      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+      authStatus === AuthorizationStatus.AUTHORIZED ||
+      authStatus === AuthorizationStatus.PROVISIONAL;
 
     if (__DEV__) {
       console.log('[FCM] iOS Permission status:', authStatus, 'Enabled:', enabled);
@@ -46,14 +80,20 @@ export const requestNotificationPermission = async () => {
 };
 
 /**
- * Obtains the current FCM Device Token.
- * Returns the token string or null if failed. Logs token in __DEV__ mode.
+ * Obtains the current FCM Device Token using modular getToken(messaging).
+ * Returns the token string or null if failed.
  */
 export const getFCMToken = async () => {
   try {
-    const token = await messaging().getToken();
+    const messaging = getMessagingInstance();
+    if (!messaging) {
+      if (__DEV__) console.warn('[FCM] Messaging instance not available for getToken');
+      return null;
+    }
+
+    const token = await fcmGetToken(messaging);
     if (__DEV__) {
-      console.log('[FCM] Device Token:', token);
+      console.log('[FCM] Device Token obtained:', maskToken(token));
     }
     return token;
   } catch (error) {
@@ -65,14 +105,20 @@ export const getFCMToken = async () => {
 };
 
 /**
- * Listens for FCM token refresh events.
+ * Listens for FCM token refresh events using modular onTokenRefresh(messaging, listener).
  * Returns an unsubscribe cleanup function.
  */
 export const onTokenRefresh = (callback) => {
   try {
-    return messaging().onTokenRefresh((token) => {
+    const messaging = getMessagingInstance();
+    if (!messaging) {
+      if (__DEV__) console.warn('[FCM] Messaging instance not available for onTokenRefresh');
+      return () => {};
+    }
+
+    return fcmOnTokenRefresh(messaging, (token) => {
       if (__DEV__) {
-        console.log('[FCM] Token refreshed:', token);
+        console.log('[FCM] Token refreshed:', maskToken(token));
       }
       if (typeof callback === 'function') {
         callback(token);
@@ -87,14 +133,24 @@ export const onTokenRefresh = (callback) => {
 };
 
 /**
- * Listens for foreground FCM push notifications.
+ * Listens for foreground FCM push notifications using modular onMessage(messaging, listener).
  * Returns an unsubscribe cleanup function.
  */
 export const onMessage = (callback) => {
   try {
-    return messaging().onMessage(async (remoteMessage) => {
+    const messaging = getMessagingInstance();
+    if (!messaging) {
+      if (__DEV__) console.warn('[FCM] Messaging instance not available for onMessage');
+      return () => {};
+    }
+
+    return fcmOnMessage(messaging, async (remoteMessage) => {
       if (__DEV__) {
-        console.log('[FCM] Foreground message:', remoteMessage);
+        console.log('[FCM] Foreground message received:', {
+          messageId: remoteMessage?.messageId,
+          data: remoteMessage?.data,
+          notification: remoteMessage?.notification?.title,
+        });
       }
       if (typeof callback === 'function') {
         callback(remoteMessage);
@@ -109,14 +165,23 @@ export const onMessage = (callback) => {
 };
 
 /**
- * Listens for user tapping a notification when the app is in the background.
+ * Listens for user tapping a notification when the app is in the background using modular onNotificationOpenedApp.
  * Returns an unsubscribe cleanup function.
  */
 export const onNotificationOpenedApp = (callback) => {
   try {
-    return messaging().onNotificationOpenedApp((remoteMessage) => {
+    const messaging = getMessagingInstance();
+    if (!messaging) {
+      if (__DEV__) console.warn('[FCM] Messaging instance not available for onNotificationOpenedApp');
+      return () => {};
+    }
+
+    return fcmOnNotificationOpenedApp(messaging, (remoteMessage) => {
       if (__DEV__) {
-        console.log('[FCM] Notification opened app from background:', remoteMessage);
+        console.log('[FCM] Notification opened app from background:', {
+          messageId: remoteMessage?.messageId,
+          data: remoteMessage?.data,
+        });
       }
       if (typeof callback === 'function') {
         callback(remoteMessage);
@@ -131,15 +196,24 @@ export const onNotificationOpenedApp = (callback) => {
 };
 
 /**
- * Checks if the app was launched from a killed state by tapping a notification.
+ * Checks if the app was launched from a killed state by tapping a notification using modular getInitialNotification.
  * Returns the remoteMessage object or null.
  */
 export const getInitialNotification = async (callback) => {
   try {
-    const remoteMessage = await messaging().getInitialNotification();
+    const messaging = getMessagingInstance();
+    if (!messaging) {
+      if (__DEV__) console.warn('[FCM] Messaging instance not available for getInitialNotification');
+      return null;
+    }
+
+    const remoteMessage = await fcmGetInitialNotification(messaging);
     if (remoteMessage) {
       if (__DEV__) {
-        console.log('[FCM] App launched from killed state by notification:', remoteMessage);
+        console.log('[FCM] App launched from killed state by notification:', {
+          messageId: remoteMessage?.messageId,
+          data: remoteMessage?.data,
+        });
       }
       if (typeof callback === 'function') {
         callback(remoteMessage);
@@ -155,47 +229,13 @@ export const getInitialNotification = async (callback) => {
 };
 
 /**
- * Initializes all FCM listeners and requests permission in exact required order:
- * 1. Register token refresh listener
- * 2. Register foreground listener
- * 3. Register background notification-open listener
- * 4. Check initial notification (killed state)
- * 5. Request permission
- * 6. Get FCM token if permission is available
- *
- * Returns a single cleanup function.
+ * Global foreground notification listener initializer (for in-app toasts/handling).
+ * Returns an unsubscribe function.
  */
-export const initializeNotifications = async () => {
-  try {
-    // 1. Register token refresh listener
-    const unsubscribeTokenRefresh = onTokenRefresh();
-
-    // 2. Register foreground listener
-    const unsubscribeForeground = onMessage();
-
-    // 3. Register background notification-open listener
-    const unsubscribeBackground = onNotificationOpenedApp();
-
-    // 4. Check initial notification (killed state)
-    await getInitialNotification();
-
-    // 5. Request permission
-    const hasPermission = await requestNotificationPermission();
-
-    // 6. Get FCM token if permission is available
-    if (hasPermission) {
-      await getFCMToken();
+export const setupForegroundNotifications = (handler) => {
+  return onMessage((remoteMessage) => {
+    if (typeof handler === 'function') {
+      handler(remoteMessage);
     }
-
-    return () => {
-      if (typeof unsubscribeTokenRefresh === 'function') unsubscribeTokenRefresh();
-      if (typeof unsubscribeForeground === 'function') unsubscribeForeground();
-      if (typeof unsubscribeBackground === 'function') unsubscribeBackground();
-    };
-  } catch (error) {
-    if (__DEV__) {
-      console.warn('[FCM] Notification initialization failed gracefully:', error?.message);
-    }
-    return () => {};
-  }
+  });
 };

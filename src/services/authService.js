@@ -1,5 +1,7 @@
+
 import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { maskToken } from './notificationService';
 
 /**
  * Send OTP to the given mobile number.
@@ -97,6 +99,15 @@ export const addAddress = async (addressData) => {
 };
 
 /**
+ * Update delivery address by ID.
+ * Endpoint: PUT /api/v1/auth/addresses/:id/
+ */
+export const updateAddress = async (id, addressData) => {
+  const response = await api.put(`/auth/addresses/${id}/`, addressData);
+  return response.data;
+};
+
+/**
  * Delete delivery address by ID.
  * Endpoint: DELETE /api/v1/auth/addresses/:id/
  */
@@ -133,6 +144,15 @@ export const markAllNotificationsRead = async () => {
 };
 
 /**
+ * Clear (delete) all notifications for current user.
+ * Endpoint: DELETE /api/v1/auth/notifications/clear-all/
+ */
+export const clearAllNotifications = async () => {
+  const response = await api.delete('/auth/notifications/clear-all/');
+  return response.data;
+};
+
+/**
  * Register or update FCM device token on backend.
  * Endpoint: POST /api/v1/auth/device-token/
  */
@@ -143,6 +163,9 @@ export const registerDeviceToken = async (fcmToken, platform = 'android') => {
       token: fcmToken,
       platform: platform,
     });
+    if (__DEV__) {
+      console.log('[FCM] Device token registered successfully with backend for token:', maskToken(fcmToken));
+    }
     return response.data;
   } catch (error) {
     if (__DEV__) {
@@ -161,6 +184,9 @@ export const removeDeviceToken = async (fcmToken = null) => {
     const response = await api.delete('/auth/device-token/', {
       data: fcmToken ? { token: fcmToken } : {},
     });
+    if (__DEV__) {
+      console.log('[FCM] Device token deactivated on backend');
+    }
     return response.data;
   } catch (error) {
     if (__DEV__) {
@@ -174,8 +200,24 @@ export const removeDeviceToken = async (fcmToken = null) => {
  * Log out user by clearing stored tokens.
  */
 export const logoutUser = async (fcmToken = null) => {
-  if (fcmToken) {
-    await removeDeviceToken(fcmToken);
+  if (fcmToken && typeof removeDeviceToken === 'function') {
+    try {
+      await removeDeviceToken(fcmToken);
+    } catch (e) {
+      if (__DEV__) {
+        console.warn('[FCM] Error in removeDeviceToken during logoutUser:', e?.message);
+      }
+    }
   }
-  await AsyncStorage.multiRemove(['access_token', 'refresh_token', 'user_data']);
+  const keys = ['access_token', 'refresh_token', 'user_data'];
+  if (typeof AsyncStorage.multiRemove === 'function') {
+    await AsyncStorage.multiRemove(keys);
+  } else if (typeof AsyncStorage.removeMany === 'function') {
+    await AsyncStorage.removeMany(keys);
+  } else {
+    for (const key of keys) {
+      await AsyncStorage.removeItem(key);
+    }
+  }
 };
+
