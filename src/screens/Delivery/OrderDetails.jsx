@@ -723,65 +723,82 @@ export default function OrderDetails() {
             <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 14, color: c.inkSecondary, marginBottom: 20, lineHeight: 22 }}>
               Did you receive <Text style={{ fontFamily: 'Poppins-Bold', color: c.brand }}>₹{amountToCollect}</Text> in cash from {customerName}?
             </Text>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <Pressable
-                onPress={() => setShowCashModal(false)}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                marginTop: 4,
+              }}>
+              <TouchableOpacity
                 disabled={collecting}
+                onPress={() => setShowCashModal(false)}
+                activeOpacity={0.7}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel"
-                style={({ pressed }) => ({
+                style={{
                   flex: 1,
-                  backgroundColor: pressed ? '#F8FAFC' : '#FFFFFF',
-                  height: 46,
-                  paddingHorizontal: 16,
+                  minHeight: 46,
                   borderRadius: 12,
-                  borderWidth: 1.2,
-                  borderColor: '#E2E8F0',
-                  flexDirection: 'row',
+                  backgroundColor: '#F1F5F9',
+                  borderWidth: 1.5,
+                  borderColor: '#CBD5E1',
                   alignItems: 'center',
                   justifyContent: 'center',
-                })}>
+                  paddingHorizontal: 12,
+                  marginRight: 10,
+                }}>
                 <Text
                   style={{
-                    color: '#0F172A',
-                    fontSize: 14,
                     fontFamily: 'Poppins-Bold',
+                    fontSize: 14,
+                    color: '#334155',
+                    fontWeight: '700',
                     includeFontPadding: false,
                   }}>
                   Cancel
                 </Text>
-              </Pressable>
+              </TouchableOpacity>
 
-              <Pressable
-                onPress={() => handleConfirmCollection('cash')}
+              <TouchableOpacity
                 disabled={collecting}
+                onPress={() => handleConfirmCollection('cash')}
+                activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityLabel="Confirm"
-                style={({ pressed }) => ({
-                  flex: 1,
-                  backgroundColor: collecting ? '#94A3B8' : pressed ? '#14532D' : '#166534',
-                  height: 46,
-                  paddingHorizontal: 16,
+                style={{
+                  flex: 1.15,
+                  minHeight: 46,
                   borderRadius: 12,
-                  flexDirection: 'row',
+                  backgroundColor: '#166534',
+                  borderWidth: 1.5,
+                  borderColor: '#14532D',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  paddingHorizontal: 12,
+                  elevation: 3,
+                  shadowColor: '#166534',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 3,
                   opacity: collecting ? 0.6 : 1,
-                })}>
+                }}>
                 {collecting ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text
                     style={{
-                      color: '#FFFFFF',
-                      fontSize: 14,
                       fontFamily: 'Poppins-Bold',
+                      fontSize: 14,
+                      color: '#FFFFFF',
+                      fontWeight: '700',
                       includeFontPadding: false,
                     }}>
                     Confirm
                   </Text>
                 )}
-              </Pressable>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -845,65 +862,82 @@ export default function OrderDetails() {
                 marginBottom: 20,
               }}
             />
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <Pressable
-                onPress={() => setShowFailedModal(false)}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                marginTop: 4,
+              }}>
+              <TouchableOpacity
                 disabled={collecting}
+                onPress={() => setShowFailedModal(false)}
+                activeOpacity={0.7}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel"
-                style={({ pressed }) => ({
+                style={{
                   flex: 1,
-                  backgroundColor: pressed ? '#F8FAFC' : '#FFFFFF',
-                  height: 46,
-                  paddingHorizontal: 16,
+                  minHeight: 46,
                   borderRadius: 12,
-                  borderWidth: 1.2,
-                  borderColor: '#E2E8F0',
-                  flexDirection: 'row',
+                  backgroundColor: '#F1F5F9',
+                  borderWidth: 1.5,
+                  borderColor: '#CBD5E1',
                   alignItems: 'center',
                   justifyContent: 'center',
-                })}>
+                  paddingHorizontal: 12,
+                  marginRight: 10,
+                }}>
                 <Text
                   style={{
-                    color: '#0F172A',
-                    fontSize: 14,
                     fontFamily: 'Poppins-Bold',
+                    fontSize: 14,
+                    color: '#334155',
+                    fontWeight: '700',
                     includeFontPadding: false,
                   }}>
                   Cancel
                 </Text>
-              </Pressable>
+              </TouchableOpacity>
 
-              <Pressable
+              <TouchableOpacity
                 onPress={handleReportFailed}
                 disabled={collecting}
+                activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityLabel="Submit Report"
-                style={({ pressed }) => ({
-                  flex: 1,
-                  backgroundColor: collecting ? '#FCA5A5' : pressed ? '#B91C1C' : '#DC2626',
-                  height: 46,
-                  paddingHorizontal: 16,
+                style={{
+                  flex: 1.15,
+                  minHeight: 46,
                   borderRadius: 12,
-                  flexDirection: 'row',
+                  backgroundColor: '#DC2626',
+                  borderWidth: 1.5,
+                  borderColor: '#B91C1C',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  paddingHorizontal: 12,
+                  elevation: 3,
+                  shadowColor: '#DC2626',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 3,
                   opacity: collecting ? 0.6 : 1,
-                })}>
+                }}>
                 {collecting ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text
                     style={{
-                      color: '#FFFFFF',
-                      fontSize: 14,
                       fontFamily: 'Poppins-Bold',
+                      fontSize: 14,
+                      color: '#FFFFFF',
+                      fontWeight: '700',
                       includeFontPadding: false,
                     }}>
                     Submit Report
                   </Text>
                 )}
-              </Pressable>
+              </TouchableOpacity>
             </View>
             </ScrollView>
           </View>
