@@ -588,11 +588,11 @@ export default function Bills({ initialTab: propInitialTab = 'invoice' }) {
                   tx.status === 'Paid';
                 const formattedDate = tx.created_at
                   ? new Date(tx.created_at).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
                   : 'Recent';
 
                 return (
