@@ -140,12 +140,12 @@ export default function ManageDeliveryPlan() {
         const items = Array.isArray(data)
           ? data
           : Array.isArray(data?.results?.products)
-          ? data.results.products
-          : Array.isArray(data?.results)
-          ? data.results
-          : Array.isArray(data?.products)
-          ? data.products
-          : [];
+            ? data.results.products
+            : Array.isArray(data?.results)
+              ? data.results
+              : Array.isArray(data?.products)
+                ? data.products
+                : [];
         setProducts(items);
         if (items.length > 0 && !selectedProduct) {
           setSelectedProduct(items[0]);
@@ -393,8 +393,8 @@ export default function ManageDeliveryPlan() {
                 existingSub.status === 'paused'
                   ? swatches.amber400
                   : existingSub.status === 'pending'
-                  ? swatches.amber400
-                  : appColors.primary,
+                    ? swatches.amber400
+                    : appColors.primary,
               padding: 16,
               ...shadow.soft,
             }}>
@@ -426,8 +426,8 @@ export default function ManageDeliveryPlan() {
                     existingSub.status === 'paused'
                       ? swatches.amber100
                       : existingSub.status === 'pending'
-                      ? swatches.amber100
-                      : appColors.primaryLight,
+                        ? swatches.amber100
+                        : appColors.primaryLight,
                   paddingHorizontal: 10,
                   paddingVertical: 4,
                   borderRadius: radius.pill,
@@ -440,14 +440,14 @@ export default function ManageDeliveryPlan() {
                       existingSub.status === 'paused'
                         ? swatches.amber800
                         : existingSub.status === 'pending'
-                        ? swatches.amber800
-                        : appColors.primary,
+                          ? swatches.amber800
+                          : appColors.primary,
                   }}>
                   {existingSub.status === 'paused'
                     ? 'Paused'
                     : existingSub.status === 'pending'
-                    ? 'Pending Approval'
-                    : 'Active'}
+                      ? 'Pending Approval'
+                      : 'Active'}
                 </Text>
               </View>
             </View>
@@ -464,8 +464,8 @@ export default function ManageDeliveryPlan() {
               {existingSub.status === 'paused'
                 ? 'Future deliveries are temporarily paused while preserving your delivery partner assignment.'
                 : existingSub.status === 'pending'
-                ? 'Your request is awaiting Admin review and delivery partner route assignment.'
-                : 'Fresh morning milk drop scheduled to your doorstep every morning before 7:00 AM.'}
+                  ? 'Your request is awaiting Admin review and delivery partner route assignment.'
+                  : 'Fresh morning milk drop scheduled to your doorstep every morning before 7:00 AM.'}
             </Text>
 
             {/* Action buttons row: Pause/Resume + Cancel */}
@@ -484,31 +484,27 @@ export default function ManageDeliveryPlan() {
                   disabled={actionLoading}
                   style={{
                     flex: 1,
-                    minHeight: 44,
-                    paddingHorizontal: 8,
+                    height: 42,
                     borderRadius: 10,
                     backgroundColor: existingSub.status === 'paused' ? appColors.primary : swatches.bgMuted,
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexDirection: 'row',
-                    gap: 6,
                   }}>
                   {actionLoading ? (
                     <ActivityIndicator size="small" color={existingSub.status === 'paused' ? '#FFF' : appColors.primary} />
                   ) : (
                     <>
                       {existingSub.status === 'paused' ? (
-                        <PlayCircle size={15} color="#FFF" />
+                        <PlayCircle size={15} color="#FFF" style={{ marginRight: 6 }} />
                       ) : (
-                        <PauseCircle size={15} color={appColors.textPrimary} />
+                        <PauseCircle size={15} color={appColors.textPrimary} style={{ marginRight: 6 }} />
                       )}
                       <Text
-                        numberOfLines={1}
                         style={{
                           fontFamily: fonts.bold,
-                          fontSize: 12,
+                          fontSize: 12.5,
                           color: existingSub.status === 'paused' ? '#FFF' : appColors.textPrimary,
-                          includeFontPadding: false,
                         }}>
                         {existingSub.status === 'paused' ? 'Resume Plan' : 'Pause Plan'}
                       </Text>
@@ -524,14 +520,12 @@ export default function ManageDeliveryPlan() {
                 style={{
                   flex: isExistingSubActiveOrPaused ? 1 : undefined,
                   width: isExistingSubActiveOrPaused ? undefined : '100%',
-                  minHeight: 44,
-                  paddingHorizontal: 8,
+                  height: 42,
                   borderRadius: 10,
                   backgroundColor: swatches.red50,
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexDirection: 'row',
-                  gap: 6,
                   borderWidth: 1,
                   borderColor: swatches.red100,
                 }}>
@@ -539,14 +533,12 @@ export default function ManageDeliveryPlan() {
                   <ActivityIndicator size="small" color={appColors.danger} />
                 ) : (
                   <>
-                    <XCircle size={15} color={appColors.danger} />
+                    <XCircle size={15} color={appColors.danger} style={{ marginRight: 6 }} />
                     <Text
-                      numberOfLines={1}
                       style={{
                         fontFamily: fonts.bold,
-                        fontSize: 11.5,
+                        fontSize: 12.5,
                         color: appColors.danger,
-                        includeFontPadding: false,
                       }}>
                       Cancel Subscription
                     </Text>
@@ -953,8 +945,8 @@ export default function ManageDeliveryPlan() {
             {isExistingSubPending
               ? 'Request Pending Approval'
               : isExistingSubActiveOrPaused
-              ? 'Update Delivery Schedule'
-              : 'Submit Subscription Request'}
+                ? 'Update Delivery Schedule'
+                : 'Submit Subscription Request'}
           </Text>
         )}
       </Pressable>
