@@ -407,7 +407,7 @@ export default function DeliveryDashboard() {
                   opacity: pressed ? 0.8 : 1,
                 })}>
                 <Text style={{ fontFamily: fonts.semiBold, fontSize: 12, color: appColors.textInverse, marginRight: 4 }}>
-                  View Details >
+                  View Details
                 </Text>
 
               </Pressable>
@@ -478,7 +478,7 @@ export default function DeliveryDashboard() {
                     padding: 10,
                     backgroundColor: "#166534",
                   }}>
-                  Hand Over >
+                  Hand Over
                 </Text>
               </Pressable>
             </View>
