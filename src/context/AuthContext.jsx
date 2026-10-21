@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile, logoutUser, registerDeviceToken, removeDeviceToken } from '../services/authService';
@@ -13,14 +13,56 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Clean state reset when 401 token refresh fails definitively or user logs out
-  const forceLogout = useCallback(async () => {
+  // Keep a ref of userToken so callbacks/listeners have access without re-subscribing
+  const userTokenRef = useRef(null);
+  useEffect(() => {
+    userTokenRef.current = userToken;
+  }, [userToken]);
+
+  // Synchronize FCM device token with backend
+  const syncFCMTokenWithBackend = useCallback(async () => {
     try {
       const fcmToken = await getFCMToken();
       if (fcmToken) {
-        await removeDeviceToken(fcmToken);
+        await registerDeviceToken(fcmToken, Platform.OS);
       }
-      await logoutUser();
+    } catch (fcmErr) {
+      if (__DEV__) {
+        console.warn('[FCM] Token sync with backend skipped/failed:', fcmErr?.message);
+      }
+    }
+  }, []);
+
+  // Clean state reset when 401 token refresh fails definitively or user logs out
+  const forceLogout = useCallback(async () => {
+    try {
+      if (typeof getFCMToken === 'function') {
+        const fcmToken = await getFCMToken();
+        if (fcmToken && typeof removeDeviceToken === 'function') {
+          await removeDeviceToken(fcmToken);
+        }
+      }
+    } catch (fcmErr) {
+      if (__DEV__) {
+        console.warn('[FCM] Error deactivating token during forceLogout:', fcmErr?.message);
+      }
+    }
+
+    try {
+      if (typeof logoutUser === 'function') {
+        await logoutUser();
+      } else {
+        const keys = ['access_token', 'refresh_token', 'user_data'];
+        if (typeof AsyncStorage.multiRemove === 'function') {
+          await AsyncStorage.multiRemove(keys);
+        } else if (typeof AsyncStorage.removeMany === 'function') {
+          await AsyncStorage.removeMany(keys);
+        } else {
+          for (const key of keys) {
+            await AsyncStorage.removeItem(key);
+          }
+        }
+      }
     } catch (e) {
       console.error('Error in forceLogout:', e);
     } finally {
@@ -30,17 +72,18 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Listen for FCM token refresh automatically
+
+  // Centralized FCM token refresh listener - registered once across lifecycle
   useEffect(() => {
     const unsubscribe = onTokenRefresh(async (newToken) => {
-      if (userToken && newToken) {
+      if (userTokenRef.current && newToken) {
         await registerDeviceToken(newToken, Platform.OS);
       }
     });
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, [userToken]);
+  }, []);
 
   useEffect(() => {
     setOnUnauthorizedCallback(() => {
@@ -79,6 +122,9 @@ export const AuthProvider = ({ children }) => {
           // Update cached values
           await AsyncStorage.setItem('user_role', activeRole);
           await AsyncStorage.setItem('user_data', JSON.stringify(profileData));
+
+          // Sync FCM token on restored session
+          syncFCMTokenWithBackend();
         } else {
           // Fallback if profile response lacks role structure
           setUserToken(token);
@@ -86,8 +132,9 @@ export const AuthProvider = ({ children }) => {
           if (savedUserDataStr) {
             try {
               setUser(JSON.parse(savedUserDataStr));
-            } catch (e) {}
+            } catch (e) { }
           }
+          syncFCMTokenWithBackend();
         }
       } catch (err) {
         console.warn('Profile fetch error during restoreSession:', err?.message || err);
@@ -103,7 +150,7 @@ export const AuthProvider = ({ children }) => {
           if (savedUserDataStr) {
             try {
               setUser(JSON.parse(savedUserDataStr));
-            } catch (e) {}
+            } catch (e) { }
           }
         } else if (err.response?.status === 401) {
           // Token is invalid/expired and refresh failed -> Clear session
@@ -115,7 +162,7 @@ export const AuthProvider = ({ children }) => {
           if (savedUserDataStr) {
             try {
               setUser(JSON.parse(savedUserDataStr));
-            } catch (e) {}
+            } catch (e) { }
           }
         }
       }
@@ -127,55 +174,69 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [forceLogout]);
+  }, [forceLogout, syncFCMTokenWithBackend]);
 
   useEffect(() => {
     restoreSession();
   }, [restoreSession]);
 
+
   const signIn = async (token, refreshToken = null, role = 'customer', userData = null) => {
+    if (!token) {
+      throw new Error('Authentication token is missing.');
+    }
+
     try {
-      if (token) {
-        await AsyncStorage.setItem('access_token', token);
-        if (refreshToken) {
-          await AsyncStorage.setItem('refresh_token', refreshToken);
+      await AsyncStorage.setItem('access_token', token);
+
+      if (refreshToken) {
+        await AsyncStorage.setItem('refresh_token', refreshToken);
+      }
+
+      let finalUser = userData || {};
+
+      // Fetch complete profile from backend.
+      try {
+        const profileRes = await getProfile();
+        const profileData = profileRes?.profile || profileRes;
+
+        if (profileData && typeof profileData === 'object') {
+          finalUser = { ...finalUser, ...profileData };
         }
-        await AsyncStorage.setItem('user_role', role);
-
-        let finalUser = userData;
-        if (userData) {
-          await AsyncStorage.setItem('user_data', JSON.stringify(userData));
-        } else {
-          try {
-            const profileRes = await getProfile();
-            finalUser = profileRes?.profile || profileRes;
-            if (finalUser) {
-              await AsyncStorage.setItem('user_data', JSON.stringify(finalUser));
-              if (finalUser.role) role = finalUser.role;
-            }
-          } catch (e) {}
-        }
-
-        setUser(finalUser);
-        setUserRole(role);
-        setUserToken(token);
-
-        // Register FCM device token with backend
-        try {
-          const fcmToken = await getFCMToken();
-          if (fcmToken) {
-            await registerDeviceToken(fcmToken, Platform.OS);
-          }
-        } catch (fcmErr) {
-          if (__DEV__) {
-            console.warn('[FCM] Token registration after signIn skipped/failed:', fcmErr?.message);
-          }
+      } catch (error) {
+        if (__DEV__) {
+          console.warn('Profile fetch after login failed:', error?.message);
         }
       }
-    } catch (e) {
-      console.error('Error during sign in:', e);
+
+      const finalRole = finalUser.role || role;
+
+      if (typeof AsyncStorage.multiSet === 'function') {
+        await AsyncStorage.multiSet([
+          ['user_role', finalRole],
+          ['user_data', JSON.stringify(finalUser)],
+        ]);
+      } else if (typeof AsyncStorage.setMany === 'function') {
+        await AsyncStorage.setMany({
+          user_role: finalRole,
+          user_data: JSON.stringify(finalUser),
+        });
+      } else {
+        await AsyncStorage.setItem('user_role', finalRole);
+        await AsyncStorage.setItem('user_data', JSON.stringify(finalUser));
+      }
+
+      setUser(finalUser);
+      setUserRole(finalRole);
+      setUserToken(token);
+
+      await syncFCMTokenWithBackend();
+    } catch (error) {
+      console.error('Error during sign in:', error);
+      throw error;
     }
   };
+
 
   const signOut = async () => {
     try {
@@ -183,6 +244,16 @@ export const AuthProvider = ({ children }) => {
     } catch (e) {
       console.error('Error during sign out:', e);
     }
+  };
+
+  const completeProfileSetup = async (profileData) => {
+    const updatedUser = {
+      ...(user || {}),
+      ...profileData,
+    };
+
+    await AsyncStorage.setItem('user_data', JSON.stringify(updatedUser));
+    setUser(updatedUser);
   };
 
   const isAuthenticated = Boolean(userToken);
@@ -200,6 +271,7 @@ export const AuthProvider = ({ children }) => {
         restoreSession,
         setUserRole,
         setUser,
+        completeProfileSetup,
       }}>
       {children}
     </AuthContext.Provider>
