@@ -538,8 +538,8 @@ export default function DeliveryCalendar() {
                         backgroundColor: isSelected
                           ? appColors.primary
                           : isToday
-                          ? appColors.primaryLight
-                          : 'transparent',
+                            ? appColors.primaryLight
+                            : 'transparent',
                         alignItems: 'center',
                         justifyContent: 'center',
                         borderWidth: isToday && !isSelected ? 1 : 0,
@@ -552,8 +552,8 @@ export default function DeliveryCalendar() {
                           color: isSelected
                             ? '#FFFFFF'
                             : isToday
-                            ? appColors.primary
-                            : appColors.textPrimary,
+                              ? appColors.primary
+                              : appColors.textPrimary,
                         }}>
                         {cell.day}
                       </Text>
@@ -638,6 +638,7 @@ export default function DeliveryCalendar() {
               backgroundColor: appColors.surface,
               borderRadius: 18,
               borderWidth: 1,
+              marginBottom: 20,
               borderColor: appColors.border,
               padding: 16,
               ...shadow.soft,
