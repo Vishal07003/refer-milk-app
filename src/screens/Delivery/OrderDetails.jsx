@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, Linking, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, Pressable, TouchableOpacity, Linking, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import {
   Package,
@@ -254,34 +254,35 @@ export default function OrderDetails() {
 
         {customerMobile ? (
           <View style={{ marginTop: 14 }}>
-            <Pressable
+            <TouchableOpacity
               onPress={handleCall}
+              activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel="Call Customer"
-              style={({ pressed }) => ({
+              style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#EBF7EE',
+                backgroundColor: '#DCFCE7',
                 borderWidth: 1.5,
-                borderColor: '#BBF7D0',
-                borderRadius: radius.md,
+                borderColor: '#86EFAC',
+                borderRadius: 12,
                 minHeight: 48,
                 paddingHorizontal: 16,
-                opacity: pressed ? 0.75 : 1,
-              })}>
-              <Phone size={17} color="#2D5A36" strokeWidth={2.2} />
+                width: '100%',
+              }}>
+              <Phone size={18} color="#15803D" strokeWidth={2.2} style={{ marginRight: 8 }} />
               <Text
                 style={{
                   fontFamily: 'Poppins-Bold',
                   fontSize: 14,
-                  color: '#2D5A36',
-                  marginLeft: 8,
+                  color: '#15803D',
+                  fontWeight: '700',
                   includeFontPadding: false,
                 }}>
                 Call Customer
               </Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
         ) : null}
       </Surface>
@@ -324,39 +325,41 @@ export default function OrderDetails() {
           </View>
         ) : null}
 
-        <View style={{ marginTop: 10 }}>
-          <Pressable
+        <View style={{ marginTop: 12 }}>
+          <TouchableOpacity
             onPress={handleOpenMap}
+            activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Navigate"
-            style={({ pressed }) => ({
+            style={{
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: addressObj?.latitude && addressObj?.longitude ? '#EBF7EE' : c.surfaceMuted,
+              backgroundColor: '#EBF7EE',
               borderWidth: 1.5,
-              borderColor: addressObj?.latitude && addressObj?.longitude ? '#BBF7D0' : c.border,
-              borderRadius: radius.md,
-              minHeight: 44,
+              borderColor: '#86EFAC',
+              borderRadius: 12,
+              minHeight: 48,
               paddingHorizontal: 16,
-              opacity: pressed ? 0.75 : 1,
-            })}>
+              width: '100%',
+            }}>
             <Navigation
-              size={17}
-              color={addressObj?.latitude && addressObj?.longitude ? '#2D5A36' : c.brand}
+              size={18}
+              color="#15803D"
               strokeWidth={2.2}
+              style={{ marginRight: 8 }}
             />
             <Text
               style={{
                 fontFamily: 'Poppins-Bold',
                 fontSize: 14,
-                color: addressObj?.latitude && addressObj?.longitude ? '#2D5A36' : c.brand,
-                marginLeft: 8,
+                color: '#15803D',
+                fontWeight: '700',
                 includeFontPadding: false,
               }}>
               Navigate
             </Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
       </Surface>
 
@@ -504,70 +507,74 @@ export default function OrderDetails() {
         <View style={{ marginBottom: 20 }}>
           <SectionLabel>Cash Collection</SectionLabel>
           <View style={{ gap: 10, marginTop: 4 }}>
-            <Pressable
+            <TouchableOpacity
               onPress={() => setShowCashModal(true)}
               disabled={collecting || updating}
+              activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel={`Collect Cash ₹${amountToCollect}`}
-              style={({ pressed }) => ({
-                backgroundColor: (collecting || updating) ? '#94A3B8' : pressed ? '#14532D' : '#166534',
-                height: 52,
+              style={{
+                backgroundColor: (collecting || updating) ? '#94A3B8' : '#166534',
+                borderWidth: 1.5,
+                borderColor: (collecting || updating) ? '#64748B' : '#14532D',
+                minHeight: 50,
                 paddingHorizontal: 20,
-                borderRadius: 14,
+                borderRadius: 12,
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
                 width: '100%',
                 opacity: (collecting || updating) ? 0.6 : 1,
                 elevation: 3,
                 shadowColor: '#166534',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.25,
-                shadowRadius: 4,
-              })}>
-              <Banknote size={22} color="#FFFFFF" strokeWidth={2.2} />
+                shadowRadius: 3,
+              }}>
+              <Banknote size={20} color="#FFFFFF" strokeWidth={2.2} style={{ marginRight: 8 }} />
               <Text
                 style={{
                   color: '#FFFFFF',
                   fontSize: 15,
                   fontFamily: 'Poppins-Bold',
+                  fontWeight: '700',
                   includeFontPadding: false,
                 }}>
                 Collect Cash (₹{amountToCollect})
               </Text>
-            </Pressable>
+            </TouchableOpacity>
 
-            <Pressable
+            <TouchableOpacity
               onPress={() => setShowFailedModal(true)}
               disabled={collecting || updating}
+              activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel="Unable to Collect Cash"
-              style={({ pressed }) => ({
-                backgroundColor: pressed ? '#FEE2E2' : '#FEF2F2',
-                height: 48,
-                paddingHorizontal: 18,
-                borderRadius: 14,
+              style={{
+                backgroundColor: '#FEF2F2',
                 borderWidth: 1.5,
                 borderColor: '#FCA5A5',
+                minHeight: 48,
+                paddingHorizontal: 18,
+                borderRadius: 12,
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
                 width: '100%',
                 opacity: (collecting || updating) ? 0.6 : 1,
-              })}>
-              <AlertCircle size={18} color="#DC2626" strokeWidth={2.2} />
+              }}>
+              <AlertCircle size={18} color="#DC2626" strokeWidth={2.2} style={{ marginRight: 8 }} />
               <Text
                 style={{
                   color: '#DC2626',
                   fontSize: 14,
                   fontFamily: 'Poppins-Bold',
+                  fontWeight: '700',
                   includeFontPadding: false,
                 }}>
                 Unable to Collect Cash
               </Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
         </View>
       )}
