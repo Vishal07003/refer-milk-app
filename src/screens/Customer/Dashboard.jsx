@@ -604,17 +604,17 @@ export default function Dashboard() {
                       {todayDelivery
                         ? `Today: ${todayDelivery.status_display || todayDelivery.status} · ${todayDelivery.quantity} ${todayDelivery.unit || 'L'}`
                         : activeSub?.status === 'pending'
-                        ? 'Status: Pending Admin Approval · Deliveries start once approved'
-                        : activeSub?.status === 'paused'
-                        ? 'Status: Paused (Vacation) · Deliveries on hold'
-                        : activeSub?.status === 'active'
-                        ? 'Status: Active Plan · COD Doorstep'
-                        : 'Fresh milk delivered to your doorstep every morning'}
+                          ? 'Status: Pending Admin Approval · Deliveries start once approved'
+                          : activeSub?.status === 'paused'
+                            ? 'Status: Paused (Vacation) · Deliveries on hold'
+                            : activeSub?.status === 'active'
+                              ? 'Status: Active Plan · COD Doorstep'
+                              : 'Fresh milk delivered to your doorstep every morning'}
                     </Text>
                   </View>
                 </View>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={{ flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                   {activeSub && (
                     <Pressable
                       onPress={() => navigation.navigate('DeliveryCalendar')}
@@ -639,6 +639,9 @@ export default function Dashboard() {
                       paddingHorizontal: 10,
                       paddingVertical: 5,
                       borderRadius: 8,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '100%',
                     }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: appColors.textPrimary }}>
                       {activeSub ? 'Plan' : 'Track'}
@@ -1148,8 +1151,8 @@ export default function Dashboard() {
                     {todayDelivery
                       ? `Today: ${todayDelivery.status_display || todayDelivery.status} · ${todayDelivery.quantity} ${todayDelivery.unit || 'L'}`
                       : upcomingDelivery
-                      ? `Next: ${new Date(upcomingDelivery.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · ${upcomingDelivery.status_display || 'Scheduled'}`
-                      : 'Monthly delivery schedule & drop tracking'}
+                        ? `Next: ${new Date(upcomingDelivery.delivery_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · ${upcomingDelivery.status_display || 'Scheduled'}`
+                        : 'Monthly delivery schedule & drop tracking'}
                   </Text>
                 </View>
                 <ChevronRight size={16} color={appColors.textMuted} />
