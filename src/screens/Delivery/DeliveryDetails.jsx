@@ -222,35 +222,35 @@ export default function DeliveryDetails() {
 
         {customerMobile ? (
           <View style={{ marginTop: 14 }}>
-            <Pressable
+            <TouchableOpacity
               onPress={handleCall}
+              activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel="Call Customer"
-              style={({ pressed }) => ({
+              style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#EBF7EE',
+                backgroundColor: '#DCFCE7',
                 borderWidth: 1.5,
-                borderColor: '#BBF7D0',
-                borderRadius: radius.md,
+                borderColor: '#86EFAC',
+                borderRadius: 12,
                 minHeight: 48,
                 paddingHorizontal: 16,
-                opacity: pressed ? 0.75 : 1,
-              })}>
-
+                width: '100%',
+              }}>
+              <Phone size={18} color="#15803D" strokeWidth={2.2} style={{ marginRight: 8 }} />
               <Text
                 style={{
                   fontFamily: 'Poppins-Bold',
                   fontSize: 14,
-                  color: '#2D5A36',
-                  marginLeft: 8,
+                  color: '#15803D',
+                  fontWeight: '700',
                   includeFontPadding: false,
                 }}>
-                <Phone size={17} color="#2D5A36" strokeWidth={2.2} style={{ paddingRight: 10 }} />
                 Call Customer
               </Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
         ) : null}
       </Surface>
@@ -305,40 +305,40 @@ export default function DeliveryDetails() {
         ) : null}
 
         <View style={{ marginTop: 14 }}>
-          <Pressable
+          <TouchableOpacity
             onPress={handleOpenMap}
+            activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Navigate"
-            style={({ pressed }) => ({
+            style={{
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: addressObj?.latitude && addressObj?.longitude ? '#EBF7EE' : c.surfaceMuted,
+              backgroundColor: '#EBF7EE',
               borderWidth: 1.5,
-              borderColor: addressObj?.latitude && addressObj?.longitude ? '#BBF7D0' : c.border,
-              borderRadius: radius.md,
-              minHeight: 46,
+              borderColor: '#86EFAC',
+              borderRadius: 12,
+              minHeight: 48,
               paddingHorizontal: 16,
-              opacity: pressed ? 0.75 : 1,
-            })}>
-
+              width: '100%',
+            }}>
+            <Navigation
+              size={18}
+              color="#15803D"
+              strokeWidth={2.2}
+              style={{ marginRight: 8 }}
+            />
             <Text
               style={{
-
                 fontFamily: 'Poppins-Bold',
-                fontSize: 13,
-                color: addressObj?.latitude && addressObj?.longitude ? '#2D5A36' : c.brand,
-                marginLeft: 8,
+                fontSize: 14,
+                color: '#15803D',
+                fontWeight: '700',
                 includeFontPadding: false,
               }}>
-              <Navigation
-                size={16}
-                color={addressObj?.latitude && addressObj?.longitude ? '#2D5A36' : c.brand}
-                strokeWidth={2.2} style={{ paddingRight: 10 }}
-              />
               Navigate
             </Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
       </Surface>
 
@@ -647,6 +647,7 @@ export default function DeliveryDetails() {
             accessibilityLabel="Report Delivery Failed"
             style={{
               backgroundColor: '#FEF2F2',
+              marginBottom: 20,
               minHeight: 50,
               paddingHorizontal: 16,
               borderRadius: 12,
