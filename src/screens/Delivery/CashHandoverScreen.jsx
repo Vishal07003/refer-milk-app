@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, TextInput, Modal, Alert, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, TextInput, Modal, Alert, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
   Banknote,
@@ -505,66 +505,83 @@ export default function CashHandoverScreen() {
                 }}
               />
 
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Pressable
-                  onPress={() => setShowHandoverModal(false)}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  marginTop: 4,
+                }}>
+                <TouchableOpacity
                   disabled={submittingHandover}
+                  onPress={() => setShowHandoverModal(false)}
+                  activeOpacity={0.7}
                   accessibilityRole="button"
-                accessibilityLabel="Cancel"
-                style={({ pressed }) => ({
-                  flex: 1,
-                  backgroundColor: pressed ? '#F8FAFC' : '#FFFFFF',
-                  height: 46,
-                  paddingHorizontal: 16,
-                  borderRadius: 12,
-                  borderWidth: 1.2,
-                  borderColor: '#E2E8F0',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                })}>
-                <Text
+                  accessibilityLabel="Cancel"
                   style={{
-                    color: '#0F172A',
-                    fontSize: 14,
-                    fontFamily: 'Poppins-Bold',
-                    includeFontPadding: false,
+                    flex: 1,
+                    minHeight: 46,
+                    borderRadius: 12,
+                    backgroundColor: '#F1F5F9',
+                    borderWidth: 1.5,
+                    borderColor: '#CBD5E1',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: 12,
+                    marginRight: 10,
                   }}>
-                  Cancel
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handleSubmitHandover}
-                disabled={submittingHandover}
-                accessibilityRole="button"
-                accessibilityLabel="Submit Handover"
-                style={({ pressed }) => ({
-                  flex: 1,
-                  backgroundColor: submittingHandover ? '#94A3B8' : pressed ? '#14532D' : '#166534',
-                  height: 46,
-                  paddingHorizontal: 16,
-                  borderRadius: 12,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: submittingHandover ? 0.6 : 1,
-                })}>
-                {submittingHandover ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
                   <Text
                     style={{
-                      color: '#FFFFFF',
-                      fontSize: 14,
                       fontFamily: 'Poppins-Bold',
+                      fontSize: 14,
+                      color: '#334155',
+                      fontWeight: '700',
                       includeFontPadding: false,
                     }}>
-                    Submit Handover
+                    Cancel
                   </Text>
-                )}
-              </Pressable>
-            </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  disabled={submittingHandover}
+                  onPress={handleSubmitHandover}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Submit Handover"
+                  style={{
+                    flex: 1.15,
+                    minHeight: 46,
+                    borderRadius: 12,
+                    backgroundColor: '#166534',
+                    borderWidth: 1.5,
+                    borderColor: '#14532D',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: 12,
+                    elevation: 3,
+                    shadowColor: '#166534',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 3,
+                    opacity: submittingHandover ? 0.6 : 1,
+                  }}>
+                  {submittingHandover ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text
+                      style={{
+                        fontFamily: 'Poppins-Bold',
+                        fontSize: 14,
+                        color: '#FFFFFF',
+                        fontWeight: '700',
+                        includeFontPadding: false,
+                      }}>
+                      Submit Handover
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
