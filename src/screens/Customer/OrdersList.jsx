@@ -38,12 +38,12 @@ export default function OrdersList() {
       const list = Array.isArray(data)
         ? data
         : Array.isArray(data?.results?.orders)
-        ? data.results.orders
-        : Array.isArray(data?.orders)
-        ? data.orders
-        : Array.isArray(data?.results)
-        ? data.results
-        : [];
+          ? data.results.orders
+          : Array.isArray(data?.orders)
+            ? data.orders
+            : Array.isArray(data?.results)
+              ? data.results
+              : [];
       setOrders(list);
     } catch (err) {
       console.error('Error fetching customer orders:', err);
@@ -118,6 +118,7 @@ export default function OrdersList() {
                   borderRadius: radius.pill,
                   flexDirection: 'row',
                   alignItems: 'center',
+
                 }}>
                 <ShieldCheck size={11} color="#166534" style={{ marginRight: 3 }} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#166534' }}>
@@ -225,8 +226,8 @@ export default function OrdersList() {
                         {item.payment_method === 'razorpay'
                           ? 'Online Payment'
                           : item.payment_method === 'upi_at_delivery'
-                          ? 'UPI at Delivery'
-                          : 'Cash on Delivery'}
+                            ? 'UPI at Delivery'
+                            : 'Cash on Delivery'}
                       </Text>
                       <Text
                         style={{
