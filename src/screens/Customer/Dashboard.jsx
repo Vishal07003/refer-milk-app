@@ -59,14 +59,18 @@ import { resolveImageUrl } from '../../services/api';
 import AppThemedDialog from '../../components/AppThemedDialog';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
+import { getInitials, getUserDisplayName } from '../../utils/initials';
+import { DashboardSkeleton } from '../../components/Skeleton';
 
 export default function Dashboard() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { hasSubscription, setHasSubscription } = useSubscription();
   const { showToast } = useToast();
+  const { user: authUser } = useAuth();
 
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState(authUser || null);
   const [addresses, setAddresses] = useState([]);
   const [activeSub, setActiveSub] = useState(null);
   const [calendarDeliveries, setCalendarDeliveries] = useState([]);
@@ -373,16 +377,13 @@ export default function Dashboard() {
   };
 
   const getCustomerName = () => {
-    if (!profile) return 'Customer';
-    const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
-    return name || profile.mobile_number || 'Customer';
+    return getUserDisplayName(profile || authUser, 'Customer');
   };
 
-  const getInitials = () => {
-    if (!profile) return 'R';
-    const f = (profile.first_name || '')[0] || '';
-    const l = (profile.last_name || '')[0] || '';
-    return (f + l).toUpperCase() || (profile.mobile_number ? profile.mobile_number.slice(0, 2) : 'R');
+  const getProfileInitials = () => {
+    const active = profile || authUser;
+    const name = getUserDisplayName(active, '');
+    return getInitials(name, '');
   };
 
   const defaultAddr = addresses.find((a) => a.is_default) || addresses[0];
@@ -491,27 +492,40 @@ export default function Dashboard() {
 
           <Pressable
             onPress={() => navigation.navigate('Profile')}
+            accessibilityRole="button"
+            accessibilityLabel="View Profile"
             hitSlop={8}
             style={{
               width: 34,
               height: 34,
               borderRadius: 17,
-              backgroundColor: appColors.customer.avatarBg,
+              backgroundColor: getProfileInitials() ? appColors.customer.avatarBg : c.surfaceMuted,
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: appColors.textInverse }}>
-              {getInitials()}
-            </Text>
+            {getProfileInitials() ? (
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: appColors.textInverse }}>
+                {getProfileInitials()}
+              </Text>
+            ) : (
+              <View
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(0,0,0,0.1)',
+                }}
+              />
+            )}
           </Pressable>
         </View>
       </View>
 
       {/* SCROLLABLE HOME CONTENT */}
       {loading ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
-          <ActivityIndicator size="large" color={appColors.primary} />
-        </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <DashboardSkeleton />
+        </ScrollView>
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}

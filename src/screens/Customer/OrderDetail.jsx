@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Pressable,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import {
@@ -38,16 +39,11 @@ export default function OrderDetail() {
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (orderId) {
-      fetchDetails(orderId);
-    }
-  }, [orderId]);
-
-  const fetchDetails = async (id) => {
+  const fetchDetails = React.useCallback(async (id, isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       const data = await getOrderDetail(id);
       setOrder(data?.order || data);
     } catch (err) {
@@ -55,7 +51,23 @@ export default function OrderDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (orderId) {
+      fetchDetails(orderId);
+    }
+  }, [orderId, fetchDetails]);
+
+  const onRefresh = React.useCallback(async () => {
+    if (refreshing || !orderId) return;
+    setRefreshing(true);
+    try {
+      await fetchDetails(orderId, true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchDetails, orderId, refreshing]);
 
   const steps = [
     { key: 'confirmed', label: 'Order Confirmed' },
@@ -82,7 +94,15 @@ export default function OrderDetail() {
   const addressText = formatAddress(address, 'Local Delivery Address');
 
   return (
-    <DetailScreen>
+    <DetailScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[c.brand]}
+          tintColor={c.brand}
+        />
+      }>
       <DetailHeader title={`Order #${orderId || ''}`} onBack={() => navigation.goBack()} />
 
       {loading ? (

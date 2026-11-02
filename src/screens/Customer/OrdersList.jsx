@@ -7,16 +7,21 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { Package, ChevronRight, Clock, MapPin } from 'lucide-react-native';
+import { Package, ChevronRight, Clock, MapPin, ShieldCheck } from 'lucide-react-native';
 import {
   DetailHeader,
   DetailScreen,
   EmptyStateView,
+  Screen,
+  ScreenHeader,
   StatusBadge,
   Surface,
 } from '../../components/customer/ui';
+import CustomerBackButton from '../../components/customer/CustomerBackButton';
 import { c, radius } from '../../theme/customerTheme';
+import { fonts } from '../../theme/fonts';
 import { getMyOrders } from '../../services/orderService';
+import { CardSkeleton } from '../../components/Skeleton';
 
 export default function OrdersList() {
   const navigation = useNavigation();
@@ -74,12 +79,64 @@ export default function OrdersList() {
   };
 
   return (
-    <DetailScreen>
-      <DetailHeader title="My Orders" onBack={() => navigation.goBack()} />
+    <Screen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[c.brand]}
+          tintColor={c.brand}
+        />
+      }>
+      {/* 1. TOP HEADER - Matches Products Header Size & Layout */}
+      <View
+        style={{
+          paddingBottom: 16,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          {navigation?.canGoBack?.() && (
+            <CustomerBackButton
+              onPress={() => navigation.goBack()}
+              style={{ marginRight: 12 }}
+              size={52}
+              iconSize={22}
+            />
+          )}
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: '#0F172A', marginRight: 8 }}>
+                My Orders
+              </Text>
+              <View
+                style={{
+                  backgroundColor: '#DCFCE7',
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: radius.pill,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}>
+                <ShieldCheck size={11} color="#166534" style={{ marginRight: 3 }} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#166534' }}>
+                  Pure COD
+                </Text>
+              </View>
+            </View>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: '#64748B', marginTop: 2 }}>
+              Track past and current dairy orders
+            </Text>
+          </View>
+        </View>
+      </View>
 
       {loading ? (
-        <View style={{ paddingVertical: 60, alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={c.brand} />
+        <View style={{ gap: 12 }}>
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
         </View>
       ) : error ? (
         <Surface padded style={{ alignItems: 'center', paddingVertical: 32, marginVertical: 12 }}>
@@ -200,6 +257,6 @@ export default function OrdersList() {
           })}
         </View>
       )}
-    </DetailScreen>
+    </Screen>
   );
 }

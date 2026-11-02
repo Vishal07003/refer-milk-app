@@ -10,13 +10,14 @@ import AppKeyboardAwareScrollView from '../AppKeyboardAwareScrollView';
 
 export { CustomerBackButton };
 
-export function DetailScreen({ children }) {
+export function DetailScreen({ children, refreshControl }) {
   const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: c.bg }} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={c.bg} />
       <AppKeyboardAwareScrollView
+        refreshControl={refreshControl}
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: 8,
@@ -563,27 +564,40 @@ export function LogoutRow({ onPress, label = 'Sign out' }) {
   );
 }
 
-export function Avatar({ initials, size = 44, ring }) {
+export function Avatar({ initials, size = 44, ring, backgroundColor }) {
+  const hasInitials = initials && typeof initials === 'string' && initials.trim().length > 0;
+
   return (
     <View
       style={{
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: c.brand,
+        backgroundColor: backgroundColor || (hasInitials ? c.brand : c.surfaceMuted),
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: ring ? 3 : 0,
         borderColor: c.surface,
       }}>
-      <Text
-        style={{
-          fontFamily: 'Poppins-Bold',
-          fontSize: size * 0.34,
-          color: '#FFFFFF',
-        }}>
-        {initials}
-      </Text>
+      {hasInitials ? (
+        <Text
+          style={{
+            fontFamily: 'Poppins-Bold',
+            fontSize: size * 0.34,
+            color: '#FFFFFF',
+          }}>
+          {initials.trim().toUpperCase()}
+        </Text>
+      ) : (
+        <View
+          style={{
+            width: size * 0.45,
+            height: size * 0.45,
+            borderRadius: (size * 0.45) / 2,
+            backgroundColor: 'rgba(0,0,0,0.08)',
+          }}
+        />
+      )}
     </View>
   );
 }

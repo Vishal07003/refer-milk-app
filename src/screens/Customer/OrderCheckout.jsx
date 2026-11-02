@@ -31,9 +31,11 @@ import { fonts } from '../../theme/fonts';
 import AppButton from '../../components/AppButton';
 import CustomerBackButton from '../../components/customer/CustomerBackButton';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { getAddresses, getProfile, getMyReferrals } from '../../services/authService';
 import { getDeliverySlots, createOrder } from '../../services/orderService';
 import { resolveImageUrl } from '../../services/api';
+import { getInitials, getUserDisplayName } from '../../utils/initials';
 
 // Helper to format slot time window (e.g., '06:00:00' -> '6:00 AM')
 const formatTimeString = (timeStr) => {
@@ -63,6 +65,7 @@ export default function OrderCheckout() {
   const route = useRoute();
   const insets = useSafeAreaInsets();
   const { showToast } = useToast();
+  const { user: authUser } = useAuth();
 
   const rawCartItems = route.params?.cartItems;
   const cartItems = useMemo(() => rawCartItems || [], [rawCartItems]);
@@ -77,7 +80,7 @@ export default function OrderCheckout() {
 
   const [referralRewardAmount, setReferralRewardAmount] = useState(0.0);
   const [availableReferralBal, setAvailableReferralBal] = useState(0.0);
-  const [userProfile, setUserProfile] = useState(null);
+  const [userProfile, setUserProfile] = useState(authUser || null);
 
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
@@ -527,19 +530,37 @@ export default function OrderCheckout() {
         </View>
 
         {/* Profile Avatar Badge */}
-        <View
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 17,
-            backgroundColor: '#064E3B',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#FFFFFF' }}>
-            {userProfile?.first_name ? userProfile.first_name[0].toUpperCase() : 'R'}
-          </Text>
-        </View>
+        {(() => {
+          const active = userProfile || authUser;
+          const name = getUserDisplayName(active, '');
+          const initials = getInitials(name, '');
+          return (
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                backgroundColor: initials ? '#064E3B' : c.surfaceMuted,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              {initials ? (
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#FFFFFF' }}>
+                  {initials}
+                </Text>
+              ) : (
+                <View
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    backgroundColor: 'rgba(0,0,0,0.1)',
+                  }}
+                />
+              )}
+            </View>
+          );
+        })()}
       </View>
 
       {loading ? (
