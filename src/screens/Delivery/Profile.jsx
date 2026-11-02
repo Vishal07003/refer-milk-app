@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Linking,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -30,25 +31,23 @@ import { c, radius } from '../../theme/customerTheme';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { getDeliveryProfile } from '../../services/deliveryService';
+import { getInitials, getUserDisplayName } from '../../utils/initials';
 
 export default function DeliveryProfile() {
   const navigation = useNavigation();
-  const { signOut } = useAuth();
+  const { signOut, user: authUser } = useAuth();
   const { showToast } = useToast();
 
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState(authUser || null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
+  const fetchProfile = React.useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       const data = await getDeliveryProfile();
       setProfile(data?.profile || data);
     } catch (err) {
@@ -56,7 +55,21 @@ export default function DeliveryProfile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  const onRefresh = React.useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchProfile(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchProfile, refreshing]);
 
   const handleLogout = () => {
     setShowLogoutConfirm(true);
@@ -88,26 +101,44 @@ export default function DeliveryProfile() {
   };
 
   const getDisplayName = () => {
-    if (!profile) return 'Delivery Partner';
-    const name = profile.user_name || `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
-    return name || profile.mobile_number || 'Delivery Partner';
+    return getUserDisplayName(profile || authUser, 'Delivery Partner');
   };
 
-  const getInitials = () => {
-    const name = getDisplayName();
-    return name[0].toUpperCase();
+  const getProfileInitials = () => {
+    const active = profile || authUser;
+    const name = getUserDisplayName(active, '');
+    return getInitials(name, '');
   };
 
   return (
-    <Screen>
+    <Screen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[c.brand]}
+          tintColor={c.brand}
+        />
+      }>
       {/* Top Profile Header with Edit icon */}
 
       <View style={styles.headerContainer}>
         <View style={styles.avatarWrapper}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {getInitials()}
-            </Text>
+          <View style={[styles.avatar, !getProfileInitials() && { backgroundColor: c.surfaceMuted }]}>
+            {getProfileInitials() ? (
+              <Text style={styles.avatarText}>
+                {getProfileInitials()}
+              </Text>
+            ) : (
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(0,0,0,0.1)',
+                }}
+              />
+            )}
           </View>
 
           <Pressable
