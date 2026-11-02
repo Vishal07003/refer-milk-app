@@ -43,8 +43,7 @@ import { useToast } from '../../../context/ToastContext';
 
 export default function DeliveryAddress({ navigation }) {
   const route = useRoute();
-  const toastContext = useToast();
-  const showToast = toastContext?.showToast || ((msg) => console.log('[Toast]', msg));
+  const { showToast } = useToast();
   const returnOnSuccess = route.params?.returnOnSuccess;
   const requireAdd = route.params?.requireAdd;
 
