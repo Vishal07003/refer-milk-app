@@ -26,6 +26,7 @@ import {
 } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { DetailHeader, DetailScreen, SectionLabel } from '../../../components/customer/ui';
+import { CardSkeleton } from '../../../components/Skeleton';
 import AppThemedDialog from '../../../components/AppThemedDialog';
 import { useSubscription } from '../../../context/SubscriptionContext';
 import { useToast } from '../../../context/ToastContext';
@@ -81,6 +82,14 @@ export default function ManageDeliveryPlan() {
     }
   };
 
+  const isMountedRef = React.useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const fetchActivePlansAndProducts = useCallback(async (isRefresh = false) => {
     try {
       if (!isRefresh) setLoading(true);
@@ -91,6 +100,8 @@ export default function ManageDeliveryPlan() {
         getMySubscriptions(),
         getDeliverySlots(),
       ]);
+
+      if (!isMountedRef.current) return;
 
       let availableSlots = [];
       if (slotsData.status === 'fulfilled') {
@@ -119,7 +130,7 @@ export default function ManageDeliveryPlan() {
             const slotId = current.delivery_slot_id || current.delivery_slot;
             const matchedSlot = availableSlots.find((sl) => sl.id === slotId);
             if (matchedSlot) {
-              setSelectedSlot(matchedSlot);
+              setSelectedSlot((prev) => prev || matchedSlot);
             }
           }
         } else {
@@ -132,9 +143,11 @@ export default function ManageDeliveryPlan() {
         const fetchedPlans = plansData.value?.plans || [];
         setPlans(fetchedPlans);
         if (fetchedPlans.length > 0) {
-          setSelectedPlan(fetchedPlans[0]);
-          setQuantity(Number(fetchedPlans[0].quantity) || 1);
+          setSelectedPlan((prev) => prev || fetchedPlans[0]);
+          setQuantity((prev) => prev || Number(fetchedPlans[0].quantity) || 1);
         }
+      } else {
+        console.warn('Failed to fetch subscription plans:', plansData.reason);
       }
 
       if (prodData.status === 'fulfilled') {
@@ -149,21 +162,30 @@ export default function ManageDeliveryPlan() {
                 ? data.products
                 : [];
         setProducts(items);
-        if (items.length > 0 && !selectedProduct) {
-          setSelectedProduct(items[0]);
+        if (items.length > 0) {
+          setSelectedProduct((prev) => prev || items[0]);
         }
       }
 
-      if (availableSlots.length > 0 && !selectedSlot) {
-        setSelectedSlot(availableSlots[0]);
+      if (availableSlots.length > 0) {
+        setSelectedSlot((prev) => prev || availableSlots[0]);
+      }
+
+      // If both plans and subscriptions failed, surface an actionable error
+      if (plansData.status === 'rejected' && subsData.status === 'rejected') {
+        setErrorMsg('Unable to load subscription plans. Please check your network and retry.');
       }
     } catch (err) {
       console.error('Error fetching plans/products:', err);
-      setErrorMsg('Failed to load available plans.');
+      if (isMountedRef.current) {
+        setErrorMsg('Failed to load available plans. Tap retry to reload.');
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
-  }, [setHasSubscription, selectedProduct, selectedSlot]);
+  }, [setHasSubscription]);
 
   const onRefresh = useCallback(async () => {
     if (refreshing) return;
@@ -359,17 +381,10 @@ export default function ManageDeliveryPlan() {
     return (
       <DetailScreen>
         <DetailHeader title="Subscription Plans" />
-        <View style={{ paddingTop: 60, alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={appColors.primary} />
-          <Text
-            style={{
-              fontFamily: fonts.medium,
-              fontSize: 13,
-              color: appColors.textMuted,
-              marginTop: 12,
-            }}>
-            Loading subscription plans...
-          </Text>
+        <View style={{ gap: 14, paddingTop: 10 }}>
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
         </View>
       </DetailScreen>
     );
@@ -574,97 +589,132 @@ export default function ManageDeliveryPlan() {
       ) : null}
 
       {/* 2. AVAILABLE SUBSCRIPTION PLANS (Explore Plans) */}
-      {plans.length > 0 && !isExistingSubActiveOrPaused ? (
-        <View style={{ marginBottom: 18 }}>
-          <Text
-            style={{
-              fontFamily: fonts.bold,
-              fontSize: 13,
-              color: appColors.textMuted,
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-              marginBottom: 10,
-            }}>
-            Approved Dairy Plans
-          </Text>
+      {!isExistingSubActiveOrPaused ? (
+        plans.length > 0 ? (
+          <View style={{ marginBottom: 18 }}>
+            <Text
+              style={{
+                fontFamily: fonts.bold,
+                fontSize: 13,
+                color: appColors.textMuted,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                marginBottom: 10,
+              }}>
+              Approved Dairy Plans
+            </Text>
 
-          <View style={{ gap: 10 }}>
-            {plans.map((p) => {
-              const isSelected = selectedPlan?.id === p.id;
-              return (
-                <Pressable
-                  key={`plan-${p.id}`}
-                  onPress={() => onSelectPlan(p)}
-                  android_ripple={{ color: 'rgba(22, 101, 52, 0.1)' }}
-                  style={{
-                    borderRadius: 16,
-                    borderWidth: isSelected ? 2 : 1,
-                    borderColor: isSelected ? appColors.primary : appColors.border,
-                    backgroundColor: isSelected ? appColors.primaryLight : appColors.surface,
-                    padding: 16,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    ...shadow.soft,
-                  }}>
-                  <View style={{ flex: 1, marginRight: 12 }}>
-                    <Text
-                      style={{
-                        fontFamily: fonts.bold,
-                        fontSize: 15,
-                        color: appColors.textPrimary,
-                      }}>
-                      {p.name}
-                    </Text>
-                    <Text
-                      style={{
-                        fontFamily: fonts.regular,
-                        fontSize: 12,
-                        color: appColors.textMuted,
-                        marginTop: 2,
-                      }}>
-                      {p.product_name} • {p.quantity} {p.unit} ({p.frequency})
-                    </Text>
-                    <Text
-                      style={{
-                        fontFamily: fonts.medium,
-                        fontSize: 11.5,
-                        color: appColors.primary,
-                        marginTop: 4,
-                      }}>
-                      {p.schedule_description || 'Daily Morning Doorstep Delivery'}
-                    </Text>
-                  </View>
-
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text
-                      style={{
-                        fontFamily: fonts.bold,
-                        fontSize: 16,
-                        color: appColors.primaryDark,
-                      }}>
-                      ₹{p.price_per_unit}/{p.unit}
-                    </Text>
-                    {isSelected ? (
-                      <View
+            <View style={{ gap: 10 }}>
+              {plans.map((p) => {
+                const isSelected = selectedPlan?.id === p.id;
+                return (
+                  <Pressable
+                    key={`plan-${p.id}`}
+                    onPress={() => onSelectPlan(p)}
+                    android_ripple={{ color: 'rgba(22, 101, 52, 0.1)' }}
+                    style={{
+                      borderRadius: 16,
+                      borderWidth: isSelected ? 2 : 1,
+                      borderColor: isSelected ? appColors.primary : appColors.border,
+                      backgroundColor: isSelected ? appColors.primaryLight : appColors.surface,
+                      padding: 16,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      ...shadow.soft,
+                    }}>
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                      <Text
                         style={{
-                          marginTop: 6,
-                          width: 22,
-                          height: 22,
-                          borderRadius: 11,
-                          backgroundColor: appColors.primary,
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          fontFamily: fonts.bold,
+                          fontSize: 15,
+                          color: appColors.textPrimary,
                         }}>
-                        <Check size={13} color="#FFF" strokeWidth={3} />
-                      </View>
-                    ) : null}
-                  </View>
-                </Pressable>
-              );
-            })}
+                        {p.name}
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: fonts.regular,
+                          fontSize: 12,
+                          color: appColors.textMuted,
+                          marginTop: 2,
+                        }}>
+                        {p.product_name} • {p.quantity} {p.unit} ({p.frequency})
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: fonts.medium,
+                          fontSize: 11.5,
+                          color: appColors.primary,
+                          marginTop: 4,
+                        }}>
+                        {p.schedule_description || 'Daily Morning Doorstep Delivery'}
+                      </Text>
+                    </View>
+
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text
+                        style={{
+                          fontFamily: fonts.bold,
+                          fontSize: 16,
+                          color: appColors.primaryDark,
+                        }}>
+                        ₹{p.price_per_unit}/{p.unit}
+                      </Text>
+                      {isSelected ? (
+                        <View
+                          style={{
+                            marginTop: 6,
+                            width: 22,
+                            height: 22,
+                            borderRadius: 11,
+                            backgroundColor: appColors.primary,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                          <Check size={13} color="#FFF" strokeWidth={3} />
+                        </View>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
-        </View>
+        ) : !loading && products.length === 0 ? (
+          <View
+            style={{
+              backgroundColor: appColors.surface,
+              borderRadius: 16,
+              padding: 24,
+              alignItems: 'center',
+              marginBottom: 18,
+              borderWidth: 1,
+              borderColor: appColors.border,
+              ...shadow.soft,
+            }}>
+            <Milk size={32} color={appColors.primary} style={{ marginBottom: 8 }} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: appColors.textPrimary }}>
+              No Subscription Plans Available
+            </Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: appColors.textMuted, textAlign: 'center', marginTop: 4 }}>
+              Check back soon for new dairy delivery plans or contact hub support.
+            </Text>
+            <Pressable
+              onPress={() => fetchActivePlansAndProducts()}
+              style={{
+                marginTop: 12,
+                backgroundColor: appColors.primary,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 8,
+              }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#FFF' }}>
+                Retry
+              </Text>
+            </Pressable>
+          </View>
+        ) : null
       ) : null}
 
       {/* 3. CUSTOM PRODUCT SELECTION (Optional if no plan selected) */}
@@ -927,15 +977,30 @@ export default function ManageDeliveryPlan() {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
+            justifyContent: 'space-between',
             backgroundColor: swatches.red50,
             padding: 12,
             borderRadius: 12,
             marginBottom: 16,
           }}>
-          <AlertCircle size={16} color={appColors.danger} style={{ marginRight: 8 }} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: appColors.danger, flex: 1 }}>
-            {errorMsg}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+            <AlertCircle size={16} color={appColors.danger} style={{ marginRight: 8 }} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: appColors.danger, flex: 1 }}>
+              {errorMsg}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => fetchActivePlansAndProducts()}
+            style={{
+              backgroundColor: appColors.danger,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 8,
+            }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#FFF' }}>
+              Retry
+            </Text>
+          </Pressable>
         </View>
       ) : null}
 
