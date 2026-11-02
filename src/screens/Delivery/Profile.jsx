@@ -3,7 +3,6 @@ import {
   View,
   Text,
   ActivityIndicator,
-  Pressable,
   TouchableOpacity,
   StyleSheet,
   Linking,
@@ -14,7 +13,6 @@ import {
   CircleHelp,
   Banknote,
   Settings,
-  Edit3,
   Bike,
   Truck,
   ChevronRight,
@@ -22,7 +20,6 @@ import {
   ShieldCheck,
   MapPin,
   Lock,
-  Pencil,
 } from 'lucide-react-native';
 import {
   Screen,
@@ -170,17 +167,14 @@ export default function DeliveryProfile() {
           </View>
 
           {/* RIGHT: Edit Profile Button / Action */}
-          <Pressable
+          <TouchableOpacity
             onPress={navigateToEditProfile}
             accessibilityRole="button"
             accessibilityLabel="Edit Profile"
-            hitSlop={8}
-            style={({ pressed }) => [
-              styles.editButton,
-              pressed && { opacity: 0.78, transform: [{ scale: 0.96 }] },
-            ]}>
-            <Pencil size={15} color={appColors.textPrimary} />
-          </Pressable>
+            activeOpacity={0.8}
+            style={styles.editButton}>
+            <Text style={styles.editButtonText}>EDIT</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -194,13 +188,6 @@ export default function DeliveryProfile() {
           {/* 2. VEHICLE & HUB INFO CARD */}
           <View style={styles.sectionHeaderRow}>
             <SectionLabel>Vehicle & Hub Info</SectionLabel>
-            <TouchableOpacity
-              onPress={navigateToEditProfile}
-              activeOpacity={0.7}
-              style={styles.editLinkBtn}>
-              <Edit3 size={12} color={appColors.primary} strokeWidth={2.2} style={{ marginRight: 4 }} />
-              <Text style={styles.editLinkText}>Edit Details</Text>
-            </TouchableOpacity>
           </View>
 
           <View style={styles.cardContainer}>
@@ -466,13 +453,22 @@ const styles = StyleSheet.create({
     color: appColors.primary,
   },
   editButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: appColors.borderLight,
+    minHeight: 40,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#176B45',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    marginLeft: 8,
+  },
+  editButtonText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.bold,
+    fontSize: 12.5,
+    letterSpacing: 0.5,
+    includeFontPadding: false,
   },
   loaderContainer: {
     paddingVertical: 40,
@@ -488,17 +484,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  editLinkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  editLinkText: {
-    fontFamily: fonts.semiBold,
-    fontSize: 12,
-    color: appColors.primary,
   },
   cardContainer: {
     backgroundColor: '#FFFFFF',
