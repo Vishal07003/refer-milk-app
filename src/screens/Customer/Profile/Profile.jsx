@@ -26,7 +26,7 @@ import {
   FlaskConical,
   LogOut,
 } from 'lucide-react-native';
-import { appColors, shadow, radius, swatches } from '../../../theme/customerTheme';
+import { appColors, c, shadow, radius, swatches } from '../../../theme/customerTheme';
 import { fonts } from '../../../theme/fonts';
 import { useSubscription } from '../../../context/SubscriptionContext';
 import { useAuth } from '../../../context/AuthContext';
