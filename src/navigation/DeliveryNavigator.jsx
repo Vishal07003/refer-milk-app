@@ -12,6 +12,7 @@ import MySubscriptions from '../screens/Delivery/MySubscriptions';
 import DeliveryDetails from '../screens/Delivery/DeliveryDetails';
 import Availability from '../screens/Delivery/Availability';
 import Profile from '../screens/Delivery/Profile';
+import EditDeliveryProfile from '../screens/Delivery/EditProfile';
 import Notifications from '../screens/Delivery/Notifications';
 import CashHandoverScreen from '../screens/Delivery/CashHandoverScreen';
 
@@ -152,6 +153,8 @@ export default function DeliveryNavigator() {
       <Stack.Screen name="MySubscriptions" component={MySubscriptions} />
       <Stack.Screen name="CashHandover" component={CashHandoverScreen} />
       <Stack.Screen name="Notifications" component={Notifications} />
+      <Stack.Screen name="EditProfile" component={EditDeliveryProfile} />
+      <Stack.Screen name="EditDeliveryProfile" component={EditDeliveryProfile} />
     </Stack.Navigator>
   );
 }
