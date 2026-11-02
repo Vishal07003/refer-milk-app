@@ -6,6 +6,7 @@ import {
   ScrollView,
   ActivityIndicator,
   StatusBar,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,27 +42,29 @@ import {
   getWallet,
   getMySubscriptions,
 } from '../../../services/subscriptionService';
+import { getInitials, getUserDisplayName } from '../../../utils/initials';
 
 export default function Profile() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { setHasSubscription } = useSubscription();
-  const { signOut } = useAuth();
+  const { signOut, user: authUser } = useAuth();
   const { showToast } = useToast();
 
-  const [userData, setUserData] = useState(null);
+  const [userData, setUserData] = useState(authUser || null);
   const [addresses, setAddresses] = useState([]);
   const [walletBalance, setWalletBalance] = useState('0.00');
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [referralsData, setReferralsData] = useState(null);
   const [activeSubscription, setActiveSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const fetchProfileDashboard = async () => {
+  const fetchProfileDashboard = useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       const results = await Promise.allSettled([
         getProfile(),
         getAddresses(),
@@ -126,12 +129,22 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setHasSubscription]);
+
+  const onRefresh = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchProfileDashboard(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchProfileDashboard, refreshing]);
 
   useFocusEffect(
     useCallback(() => {
       fetchProfileDashboard();
-    }, [])
+    }, [fetchProfileDashboard])
   );
 
   const executeLogout = async () => {
@@ -147,14 +160,10 @@ export default function Profile() {
     }
   };
 
-  const getInitials = () => {
-    if (!userData) return 'RM';
-    const firstInitial = (userData.first_name || '')[0] || '';
-    const lastInitial = (userData.last_name || '')[0] || '';
-    const combined = (firstInitial + lastInitial).toUpperCase();
-    if (combined) return combined;
-    if (userData.mobile_number) return userData.mobile_number.slice(0, 2);
-    return 'RM';
+  const getProfileInitials = () => {
+    const active = userData || authUser;
+    const name = getUserDisplayName(active, '');
+    return getInitials(name, '');
   };
 
   const defaultAddress = addresses.find((a) => a.is_default) || addresses[0];
@@ -247,18 +256,29 @@ export default function Profile() {
               width: 34,
               height: 34,
               borderRadius: 17,
-              backgroundColor: appColors.primaryDark,
+              backgroundColor: getProfileInitials() ? appColors.primaryDark : c.surfaceMuted,
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-            <Text
-              style={{
-                fontFamily: fonts.bold,
-                fontSize: 13,
-                color: appColors.textInverse,
-              }}>
-              {getInitials()}
-            </Text>
+            {getProfileInitials() ? (
+              <Text
+                style={{
+                  fontFamily: fonts.bold,
+                  fontSize: 13,
+                  color: appColors.textInverse,
+                }}>
+                {getProfileInitials()}
+              </Text>
+            ) : (
+              <View
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(0,0,0,0.1)',
+                }}
+              />
+            )}
           </View>
         </View>
       </View>
@@ -270,6 +290,14 @@ export default function Profile() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[appColors.primary]}
+              tintColor={appColors.primary}
+            />
+          }
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingTop: 10,
@@ -298,19 +326,30 @@ export default function Profile() {
                     width: 50,
                     height: 50,
                     borderRadius: 25,
-                    backgroundColor: appColors.primaryDark,
+                    backgroundColor: getProfileInitials() ? appColors.primaryDark : c.surfaceMuted,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginRight: 12,
                   }}>
-                  <Text
-                    style={{
-                      fontFamily: fonts.bold,
-                      fontSize: 18,
-                      color: appColors.textInverse,
-                    }}>
-                    {getInitials()}
-                  </Text>
+                  {getProfileInitials() ? (
+                    <Text
+                      style={{
+                        fontFamily: fonts.bold,
+                        fontSize: 18,
+                        color: appColors.textInverse,
+                      }}>
+                      {getProfileInitials()}
+                    </Text>
+                  ) : (
+                    <View
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 12,
+                        backgroundColor: 'rgba(0,0,0,0.1)',
+                      }}
+                    />
+                  )}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text

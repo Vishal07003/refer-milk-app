@@ -23,6 +23,7 @@ import {
   updateDailyDeliveryStatus,
 } from '../../services/deliveryService';
 import { formatAddress } from '../../utils/address';
+import { CardSkeleton } from '../../components/Skeleton';
 
 export default function MySubscriptions() {
   const navigation = useNavigation();
@@ -180,8 +181,10 @@ export default function MySubscriptions() {
 
       {/* Content */}
       {loading ? (
-        <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={c.brand} />
+        <View style={{ gap: 12 }}>
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
         </View>
       ) : filteredDeliveries.length === 0 ? (
         <Surface padded style={{ alignItems: 'center', paddingVertical: 36, marginTop: 10 }}>

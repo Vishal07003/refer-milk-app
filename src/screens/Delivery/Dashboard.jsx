@@ -47,13 +47,15 @@ import {
 } from '../../services/deliveryService';
 import { getNotifications } from '../../services/authService';
 import { formatAddress } from '../../utils/address';
+import { getInitials, getUserDisplayName } from '../../utils/initials';
+import { DashboardSkeleton } from '../../components/Skeleton';
 
 export default function DeliveryDashboard() {
   const navigation = useNavigation();
   const { showToast } = useToast();
-  const { signOut } = useAuth();
+  const { signOut, user: authUser } = useAuth();
 
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState(authUser || null);
   const [summary, setSummary] = useState(null);
   const [cashSummary, setCashSummary] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
@@ -169,15 +171,13 @@ export default function DeliveryDashboard() {
   const totalDeliveries = summary?.total ?? (dailyDeliveries.length + orders.length);
 
   const getGreetingName = () => {
-    if (!profile) return 'Partner';
-    const name = profile.user_name || `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
-    return name || profile.mobile_number || 'Delivery Partner';
+    return getUserDisplayName(profile || authUser, 'Partner');
   };
 
-  const getInitials = () => {
-    if (!profile) return 'D';
-    const name = profile.user_name || profile.first_name || 'D';
-    return name[0].toUpperCase();
+  const getProfileInitials = () => {
+    const active = profile || authUser;
+    const name = getUserDisplayName(active, '');
+    return getInitials(name, '');
   };
 
   const formatQuantity = (item) => {
@@ -213,9 +213,6 @@ export default function DeliveryDashboard() {
           justifyContent: 'space-between',
         }}>
         <View style={{ flex: 1, paddingRight: 12 }}>
-          <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 13, color: c.inkMuted }}>
-            Good morning
-          </Text>
           <Text
             style={{
               fontFamily: 'Poppins-Bold',
@@ -225,6 +222,9 @@ export default function DeliveryDashboard() {
               marginTop: 2,
             }}>
             {getGreetingName()}
+          </Text>
+          <Text style={{ fontFamily: 'Poppins-Regular', fontSize: 13, color: c.inkMuted }}>
+            Good morning
           </Text>
         </View>
 
@@ -259,7 +259,7 @@ export default function DeliveryDashboard() {
             )}
           </Pressable>
           <View style={{ width: 10 }} />
-          <Avatar initials={getInitials()} size={40} ring />
+          <Avatar initials={getProfileInitials()} size={40} ring />
         </View>
       </View>
 
@@ -288,9 +288,7 @@ export default function DeliveryDashboard() {
       ) : null}
 
       {loading ? (
-        <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={c.brand} />
-        </View>
+        <DashboardSkeleton />
       ) : (
         <>
           {/* Main Dark Green Hero Card matching Screenshot */}

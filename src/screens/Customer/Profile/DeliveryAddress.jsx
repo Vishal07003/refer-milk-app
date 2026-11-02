@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import {
@@ -49,6 +50,7 @@ export default function DeliveryAddress({ navigation }) {
 
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState(null);
@@ -83,13 +85,9 @@ export default function DeliveryAddress({ navigation }) {
 
   const initialModalOpened = React.useRef(false);
 
-  useEffect(() => {
-    fetchAddressData();
-  }, []);
-
-  const fetchAddressData = async () => {
+  const fetchAddressData = React.useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       setError(null);
       const data = await getAddresses();
       const list = Array.isArray(data) ? data : [];
@@ -107,7 +105,21 @@ export default function DeliveryAddress({ navigation }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [requireAdd, showToast]);
+
+  useEffect(() => {
+    fetchAddressData();
+  }, [fetchAddressData]);
+
+  const onRefresh = React.useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchAddressData(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchAddressData, refreshing]);
 
   const openAddModal = () => {
     setEditingAddressId(null);
@@ -342,7 +354,15 @@ export default function DeliveryAddress({ navigation }) {
   };
 
   return (
-    <DetailScreen>
+    <DetailScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[appColors.primary]}
+          tintColor={appColors.primary}
+        />
+      }>
       <DetailHeader
         title="Delivery Address"
         right={

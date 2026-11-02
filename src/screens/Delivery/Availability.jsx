@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Switch, ActivityIndicator } from 'react-native';
+import { View, Text, Switch, ActivityIndicator, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Sun, Moon, Clock, ShieldCheck, Radio, Info } from 'lucide-react-native';
 import {
@@ -21,15 +21,12 @@ export default function Availability() {
   const [morningShift, setMorningShift] = useState(true);
   const [eveningShift, setEveningShift] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
+  const fetchProfile = React.useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       const data = await getDeliveryProfile();
       const prof = data?.profile || data;
       setProfile(prof);
@@ -41,7 +38,21 @@ export default function Availability() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  const onRefresh = React.useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchProfile(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchProfile, refreshing]);
 
   const handleToggle = async () => {
     if (updating) return;
@@ -62,7 +73,15 @@ export default function Availability() {
   };
 
   return (
-    <DetailScreen>
+    <DetailScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[c.brand]}
+          tintColor={c.brand}
+        />
+      }>
       <DetailHeader
         title="Duty & Shift Settings"
         onBack={() => navigation.goBack()}

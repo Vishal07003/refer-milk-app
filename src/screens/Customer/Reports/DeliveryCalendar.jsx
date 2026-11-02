@@ -5,6 +5,7 @@ import {
   Pressable,
   ActivityIndicator,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import {
   Calendar as CalendarIcon,
@@ -38,6 +39,7 @@ export default function DeliveryCalendar() {
   const route = useRoute();
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [subscription, setSubscription] = useState(null);
   const [deliveries, setDeliveries] = useState([]);
@@ -57,15 +59,9 @@ export default function DeliveryCalendar() {
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchCalendarData();
-    }, [todayStr])
-  );
-
-  const fetchCalendarData = async () => {
+  const fetchCalendarData = useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       setError(null);
       const subsRes = await getMySubscriptions();
       const subs = Array.isArray(subsRes) ? subsRes : subsRes?.results || [];
@@ -74,7 +70,6 @@ export default function DeliveryCalendar() {
       if (!current) {
         setSubscription(null);
         setDeliveries([]);
-        setLoading(false);
         return;
       }
 
@@ -99,7 +94,23 @@ export default function DeliveryCalendar() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [todayStr]);
+
+  const onRefresh = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchCalendarData(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchCalendarData, refreshing]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchCalendarData();
+    }, [fetchCalendarData])
+  );
 
   // Map deliveries by YYYY-MM-DD
   const deliveryMap = useMemo(() => {
@@ -208,7 +219,15 @@ export default function DeliveryCalendar() {
   };
 
   return (
-    <DetailScreen>
+    <DetailScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[appColors.primary]}
+          tintColor={appColors.primary}
+        />
+      }>
       <DetailHeader title="Delivery Calendar" />
 
       {loading ? (

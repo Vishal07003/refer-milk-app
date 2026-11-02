@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import {
   Check,
@@ -61,6 +62,7 @@ export default function ManageDeliveryPlan() {
   const [paymentMethod, setPaymentMethod] = useState('offline');
   const [walletBalance, setWalletBalance] = useState('0.00');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -79,9 +81,9 @@ export default function ManageDeliveryPlan() {
     }
   };
 
-  const fetchActivePlansAndProducts = useCallback(async () => {
+  const fetchActivePlansAndProducts = useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       setErrorMsg('');
       const [plansData, prodData, subsData, slotsData] = await Promise.allSettled([
         getActiveSubscriptionPlans(),
@@ -161,7 +163,20 @@ export default function ManageDeliveryPlan() {
     } finally {
       setLoading(false);
     }
-  }, [setHasSubscription]);
+  }, [setHasSubscription, selectedProduct, selectedSlot]);
+
+  const onRefresh = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await Promise.allSettled([
+        fetchActivePlansAndProducts(true),
+        fetchWalletBalance(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchActivePlansAndProducts, refreshing]);
 
   useFocusEffect(
     useCallback(() => {
@@ -366,7 +381,15 @@ export default function ManageDeliveryPlan() {
   const isExistingSubCancelled = existingSub && existingSub.status === 'cancelled';
 
   return (
-    <DetailScreen>
+    <DetailScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[appColors.primary]}
+          tintColor={appColors.primary}
+        />
+      }>
       <DetailHeader title={isExistingSubActiveOrPaused ? 'Manage Delivery Plan' : 'Explore Milk Plans'} />
 
       {/* 1. CURRENT SUBSCRIPTION CARD (Active, Paused, or Pending Approval) */}

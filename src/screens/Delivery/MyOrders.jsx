@@ -28,6 +28,7 @@ import { useToast } from '../../context/ToastContext';
 import { getMyDeliveryOrders, updateOrderStatus } from '../../services/deliveryService';
 import { formatAddress } from '../../utils/address';
 import { formatProductQuantity } from '../../utils/quantity';
+import { CardSkeleton } from '../../components/Skeleton';
 
 const STATUS_TABS = ['All', 'Pending', 'Out for Delivery', 'Delivered'];
 
@@ -175,8 +176,10 @@ export default function MyOrders() {
 
       {/* List content */}
       {loading ? (
-        <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={c.brand} />
+        <View style={{ gap: 12 }}>
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
         </View>
       ) : filteredOrders.length === 0 ? (
         <Surface padded style={{ alignItems: 'center', paddingVertical: 36, marginTop: 10 }}>

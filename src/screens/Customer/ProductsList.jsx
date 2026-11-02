@@ -30,6 +30,7 @@ import { fonts } from '../../theme/fonts';
 import CustomerBackButton from '../../components/customer/CustomerBackButton';
 import { getProducts, getCategories } from '../../services/productService';
 import { resolveImageUrl } from '../../services/api';
+import { ProductGridSkeleton } from '../../components/Skeleton';
 
 export default function ProductsList() {
   const navigation = useNavigation();
@@ -400,12 +401,9 @@ export default function ProductsList() {
 
       {/* 5. PRODUCT GRID & STATES */}
       {loading ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
-          <ActivityIndicator size="large" color="#166534" />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: '#64748B', marginTop: 12 }}>
-            Loading dairy products...
-          </Text>
-        </View>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 10 }}>
+          <ProductGridSkeleton />
+        </ScrollView>
       ) : errorMsg ? (
         <View
           style={{

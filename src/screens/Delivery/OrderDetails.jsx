@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, TouchableOpacity, Linking, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, Pressable, TouchableOpacity, Linking, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, RefreshControl } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import {
   Package,
@@ -42,23 +42,24 @@ export default function OrderDetails() {
   const [order, setOrder] = useState(initialOrder);
   const [status, setStatus] = useState(initialOrder.status || 'confirmed');
   const [updating, setUpdating] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Offline Payment Modals State
   const [showCashModal, setShowCashModal] = useState(false);
   const [showFailedModal, setShowFailedModal] = useState(false);
+  const failureReasonList = [
+    { value: 'customer_unavailable', label: 'Customer Not Available' },
+    { value: 'insufficient_cash', label: 'Insufficient Cash with Customer' },
+    { value: 'disputed_amount', label: 'Disputed Amount / Billing Issue' },
+    { value: 'customer_refused', label: 'Customer Refused Delivery/Payment' },
+  ];
   const [failureReason, setFailureReason] = useState('customer_unavailable');
   const [failureNotes, setFailureNotes] = useState('');
   const [collecting, setCollecting] = useState(false);
 
   const [actionError, setActionError] = useState(null);
 
-  useEffect(() => {
-    if (initialOrder.id) {
-      fetchLatestOrderDetail(initialOrder.id);
-    }
-  }, [initialOrder.id]);
-
-  const fetchLatestOrderDetail = async (orderId) => {
+  const fetchLatestOrderDetail = React.useCallback(async (orderId) => {
     try {
       const res = await getDeliveryOrderDetail(orderId);
       const orderData = res?.order || res;
@@ -71,7 +72,23 @@ export default function OrderDetails() {
       console.log('Using route order payload:', err?.message);
       return null;
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (initialOrder.id) {
+      fetchLatestOrderDetail(initialOrder.id);
+    }
+  }, [initialOrder.id, fetchLatestOrderDetail]);
+
+  const onRefresh = React.useCallback(async () => {
+    if (refreshing || !order.id) return;
+    setRefreshing(true);
+    try {
+      await fetchLatestOrderDetail(order.id);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchLatestOrderDetail, order.id, refreshing]);
 
   const handleUpdateStatus = async (newStatus) => {
     if (updating) return;
@@ -204,7 +221,15 @@ export default function OrderDetails() {
   const amountToCollect = order.amount_to_collect || order.final_amount || order.total_amount || '0';
 
   return (
-    <DetailScreen>
+    <DetailScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[c.brand]}
+          tintColor={c.brand}
+        />
+      }>
       <DetailHeader
         title={`Order #${order.id || ''}`}
         onBack={() => navigation.goBack()}

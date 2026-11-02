@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, TextInput, Modal, Alert, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, TextInput, Modal, Alert, Pressable, KeyboardAvoidingView, Platform, ScrollView, RefreshControl } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
   Banknote,
@@ -31,6 +31,7 @@ export default function CashHandoverScreen() {
   const [collectionsSummary, setCollectionsSummary] = useState(null);
   const [handoverData, setHandoverData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Handover modal state
   const [showHandoverModal, setShowHandoverModal] = useState(false);
@@ -51,9 +52,9 @@ export default function CashHandoverScreen() {
 
   const [fetchError, setFetchError] = useState(null);
 
-  const fetchCashData = async () => {
+  const fetchCashData = useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       setFetchError(null);
       const [colRes, handRes] = await Promise.allSettled([
         getOfflineCollections(),
@@ -75,12 +76,22 @@ export default function CashHandoverScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchCashData(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchCashData, refreshing]);
 
   useFocusEffect(
     useCallback(() => {
       fetchCashData();
-    }, [])
+    }, [fetchCashData])
   );
 
   const handleOpenHandoverModal = () => {
@@ -162,7 +173,15 @@ export default function CashHandoverScreen() {
   const handoversList = Array.isArray(handoverData?.handovers) ? handoverData.handovers : [];
 
   return (
-    <DetailScreen>
+    <DetailScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[c.brand]}
+          tintColor={c.brand}
+        />
+      }>
       <DetailHeader
         title="Cash Collection & Handover"
         onBack={() => navigation.goBack()}

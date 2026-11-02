@@ -5,6 +5,7 @@ import {
   View,
   ActivityIndicator,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import {
   CreditCard,
@@ -48,6 +49,7 @@ export default function Bills({ initialTab: propInitialTab = 'invoice' }) {
   const [profile, setProfile] = useState(null);
   const [walletData, setWalletData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -58,13 +60,9 @@ export default function Bills({ initialTab: propInitialTab = 'invoice' }) {
     }
   }, [route.params?.initialTab, initialTab]);
 
-  useEffect(() => {
-    fetchBillsData();
-  }, []);
-
-  const fetchBillsData = async () => {
+  const fetchBillsData = React.useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       setError(null);
       const [billRes, payRes, profRes, walletRes, txRes] = await Promise.allSettled([
         getCustomerBills(),
@@ -115,7 +113,21 @@ export default function Bills({ initialTab: propInitialTab = 'invoice' }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchBillsData();
+  }, [fetchBillsData]);
+
+  const onRefresh = React.useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchBillsData(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchBillsData, refreshing]);
 
   const currentWalletBalance =
     walletData?.balance ?? profile?.wallet_balance ?? profile?.profile?.wallet_balance ?? '0.00';
@@ -123,7 +135,15 @@ export default function Bills({ initialTab: propInitialTab = 'invoice' }) {
   const activeBill = bills[0] || null;
 
   return (
-    <DetailScreen>
+    <DetailScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[appColors.primary]}
+          tintColor={appColors.primary}
+        />
+      }>
       <DetailHeader title="Bills & Wallet" />
 
       {/* Segmented Tab Switcher */}

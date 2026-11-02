@@ -9,6 +9,7 @@ import {
   ScrollView,
   StatusBar,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -32,24 +33,24 @@ import { c, radius, shadow, appColors } from '../../../theme/customerTheme';
 import { fonts } from '../../../theme/fonts';
 import { getMyReferrals, getProfile, applyReferral, getAddresses } from '../../../services/authService';
 import { useToast } from '../../../context/ToastContext';
+import { useAuth } from '../../../context/AuthContext';
+import { getInitials, getUserDisplayName } from '../../../utils/initials';
 
 export default function Referrals({ navigation }) {
   const { showToast } = useToast();
-  const [profile, setProfile] = useState(null);
+  const { user: authUser } = useAuth();
+  const [profile, setProfile] = useState(authUser || null);
   const [referralData, setReferralData] = useState(null);
   const [defaultAddress, setDefaultAddress] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [neighborCode, setNeighborCode] = useState('');
   const [applyingCode, setApplyingCode] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState(true);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = React.useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       const [profRes, refRes, addrRes] = await Promise.allSettled([
         getProfile(),
         getMyReferrals(),
@@ -73,7 +74,21 @@ export default function Referrals({ navigation }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const onRefresh = React.useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchData(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchData, refreshing]);
 
   const code = referralData?.referral_code || profile?.referral_code || '';
   const totalReferrals = Number(referralData?.total_referrals) || 0;
@@ -182,19 +197,37 @@ export default function Referrals({ navigation }) {
           </View>
         </View>
 
-        <View
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 17,
-            backgroundColor: '#064E3B',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#FFFFFF' }}>
-            {profile?.first_name ? profile.first_name[0].toUpperCase() : 'R'}
-          </Text>
-        </View>
+        {(() => {
+          const active = profile || authUser;
+          const name = getUserDisplayName(active, '');
+          const initials = getInitials(name, '');
+          return (
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                backgroundColor: initials ? '#064E3B' : c.surfaceMuted,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              {initials ? (
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#FFFFFF' }}>
+                  {initials}
+                </Text>
+              ) : (
+                <View
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    backgroundColor: 'rgba(0,0,0,0.1)',
+                  }}
+                />
+              )}
+            </View>
+          );
+        })()}
       </View>
 
       {loading ? (
@@ -207,6 +240,14 @@ export default function Referrals({ navigation }) {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#166534']}
+              tintColor="#166534"
+            />
+          }
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}>
           {/* 1. GREEN HERO PROMO BANNER */}
           <View

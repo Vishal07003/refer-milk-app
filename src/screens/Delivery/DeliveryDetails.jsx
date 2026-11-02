@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, TouchableOpacity, Linking, ActivityIndicator, RefreshControl } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import {
   Milk,
@@ -35,16 +35,11 @@ export default function DeliveryDetails() {
   const [delivery, setDelivery] = useState(initialDelivery);
   const [status, setStatus] = useState(initialDelivery.status || 'pending');
   const [updating, setUpdating] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [updatingAction, setUpdatingAction] = useState(null);
   const [actionError, setActionError] = useState(null);
 
-  useEffect(() => {
-    if (initialDelivery.id) {
-      fetchLatestDailyDetail(initialDelivery.id);
-    }
-  }, [initialDelivery.id]);
-
-  const fetchLatestDailyDetail = async (deliveryId) => {
+  const fetchLatestDailyDetail = React.useCallback(async (deliveryId) => {
     try {
       const res = await getDailyDeliveryDetail(deliveryId);
       const deliveryData = res?.delivery || res;
@@ -57,7 +52,23 @@ export default function DeliveryDetails() {
       console.log('Using route delivery payload:', err?.message);
       return null;
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (initialDelivery.id) {
+      fetchLatestDailyDetail(initialDelivery.id);
+    }
+  }, [initialDelivery.id, fetchLatestDailyDetail]);
+
+  const onRefresh = React.useCallback(async () => {
+    if (refreshing || !delivery.id) return;
+    setRefreshing(true);
+    try {
+      await fetchLatestDailyDetail(delivery.id);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [delivery.id, fetchLatestDailyDetail, refreshing]);
 
   const handleUpdate = async (newStatus) => {
     if (updating) return;
@@ -172,7 +183,15 @@ export default function DeliveryDetails() {
   const isFailed = status === 'failed' || status === 'skipped';
 
   return (
-    <DetailScreen>
+    <DetailScreen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[c.brand]}
+          tintColor={c.brand}
+        />
+      }>
       <DetailHeader
         title={`Milk Drop #${delivery.id || ''}`}
         onBack={() => navigation.goBack()}
